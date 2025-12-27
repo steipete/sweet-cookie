@@ -57,4 +57,58 @@ describe('chrome sqlite provider (shared)', () => {
 		expect(res.cookies[0]?.value).toBe('yes');
 		expect(decrypt).toHaveBeenCalled();
 	});
+
+	it('supports BigInt sqlite rows without dropping cookies', async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-chrome-shared-'));
+		const dbPath = path.join(dir, 'Cookies');
+		writeFileSync(dbPath, '', 'utf8');
+
+		vi.doMock('node:sqlite', () => {
+			class DatabaseSync {
+				prepare(sql: string) {
+					return {
+						all() {
+							if (sql.includes('FROM meta')) return [{ value: 24 }];
+							return [
+								{
+									name: 'auth_token',
+									value: 'token',
+									host_key: '.x.com',
+									path: '/',
+									expires_utc: 1_700_000_000n,
+									samesite: 1n,
+									encrypted_value: new Uint8Array([1]),
+									is_secure: 1n,
+									is_httponly: 0n,
+								},
+							];
+						},
+					};
+				}
+				close() {}
+			}
+			return { DatabaseSync };
+		});
+
+		const { getCookiesFromChromeSqliteDb } = await import(
+			'../src/providers/chromeSqlite/shared.js'
+		);
+
+		const decrypt = vi.fn((_encryptedValue: Uint8Array) => 'token');
+
+		const res = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true },
+			['https://x.com/'],
+			null,
+			decrypt
+		);
+
+		expect(res.cookies).toHaveLength(1);
+		expect(res.cookies[0]?.expires).toBe(1_700_000_000);
+		expect(res.cookies[0]?.secure).toBe(true);
+		expect(res.cookies[0]?.httpOnly).toBe(false);
+		expect(res.cookies[0]?.sameSite).toBe('Lax');
+	});
 });

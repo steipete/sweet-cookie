@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { Cookie, CookieSameSite, GetCookiesResult } from '../../types.js';
 import { normalizeExpiration } from '../../util/expire.js';
 import { hostMatchesCookieDomain } from '../../util/hostMatch.js';
-import { importNodeSqlite } from '../../util/nodeSqlite.js';
+import { importNodeSqlite, supportsReadBigInts } from '../../util/nodeSqlite.js';
 import { isBunRuntime } from '../../util/runtime.js';
 
 type ChromeRow = {
@@ -125,9 +125,7 @@ function collectChromeCookiesFromRows(
 			typeof row.expires_utc === 'number' || typeof row.expires_utc === 'bigint'
 				? row.expires_utc
 				: tryParseInt(row.expires_utc);
-		const expiresValue =
-			typeof expiresRaw === 'bigint' ? Number(expiresRaw) : expiresRaw ?? undefined;
-		const expires = normalizeExpiration(expiresValue);
+		const expires = normalizeExpiration(expiresRaw ?? undefined);
 
 		if (!options.includeExpired) {
 			if (expires && expires < now) continue;
@@ -258,7 +256,11 @@ async function queryNodeOrBun(options: {
 			// Node's `node:sqlite` is synchronous and returns plain JS values. Keep it boxed in a
 			// small scope so callers don't need to care about runtime differences.
 			const { DatabaseSync } = await importNodeSqlite();
-			const db = new DatabaseSync(options.dbPath, { readOnly: true, readBigInts: true });
+			const dbOptions: { readOnly: boolean; readBigInts?: boolean } = { readOnly: true };
+			if (supportsReadBigInts()) {
+				dbOptions.readBigInts = true;
+			}
+			const db = new DatabaseSync(options.dbPath, dbOptions);
 			try {
 				const rows = db.prepare(options.sql).all() as Array<Record<string, unknown>>;
 				return { ok: true, rows };
