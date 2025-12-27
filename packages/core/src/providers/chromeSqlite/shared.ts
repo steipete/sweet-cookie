@@ -122,15 +122,27 @@ function collectChromeCookiesFromRows(
 		if (value === null) continue;
 
 		const expiresRaw =
-			typeof row.expires_utc === 'number' ? row.expires_utc : tryParseInt(row.expires_utc);
-		const expires = normalizeExpiration(expiresRaw ?? undefined);
+			typeof row.expires_utc === 'number' || typeof row.expires_utc === 'bigint'
+				? row.expires_utc
+				: tryParseInt(row.expires_utc);
+		const expiresValue =
+			typeof expiresRaw === 'bigint' ? Number(expiresRaw) : expiresRaw ?? undefined;
+		const expires = normalizeExpiration(expiresValue);
 
 		if (!options.includeExpired) {
 			if (expires && expires < now) continue;
 		}
 
-		const secure = row.is_secure === 1 || row.is_secure === '1' || row.is_secure === true;
-		const httpOnly = row.is_httponly === 1 || row.is_httponly === '1' || row.is_httponly === true;
+		const secure =
+			row.is_secure === 1 ||
+			row.is_secure === 1n ||
+			row.is_secure === '1' ||
+			row.is_secure === true;
+		const httpOnly =
+			row.is_httponly === 1 ||
+			row.is_httponly === 1n ||
+			row.is_httponly === '1' ||
+			row.is_httponly === true;
 
 		const sameSite = normalizeChromiumSameSite(row.samesite);
 
@@ -156,12 +168,20 @@ function collectChromeCookiesFromRows(
 }
 
 function tryParseInt(value: unknown): number | null {
+	if (typeof value === 'bigint') {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
 	if (typeof value !== 'string') return null;
 	const parsed = Number.parseInt(value, 10);
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeChromiumSameSite(value: unknown): CookieSameSite | undefined {
+	if (typeof value === 'bigint') {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? normalizeChromiumSameSite(parsed) : undefined;
+	}
 	if (typeof value === 'number') {
 		if (value === 2) return 'Strict';
 		if (value === 1) return 'Lax';
@@ -194,6 +214,10 @@ async function readChromiumMetaVersion(dbPath: string): Promise<number> {
 	const first = result.rows[0] as { value?: unknown } | undefined;
 	const value = first?.value;
 	if (typeof value === 'number') return Math.floor(value);
+	if (typeof value === 'bigint') {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? Math.floor(parsed) : 0;
+	}
 	if (typeof value === 'string') {
 		const parsed = Number.parseInt(value, 10);
 		return Number.isFinite(parsed) ? parsed : 0;
@@ -234,7 +258,7 @@ async function queryNodeOrBun(options: {
 			// Node's `node:sqlite` is synchronous and returns plain JS values. Keep it boxed in a
 			// small scope so callers don't need to care about runtime differences.
 			const { DatabaseSync } = await importNodeSqlite();
-			const db = new DatabaseSync(options.dbPath, { readOnly: true });
+			const db = new DatabaseSync(options.dbPath, { readOnly: true, readBigInts: true });
 			try {
 				const rows = db.prepare(options.sql).all() as Array<Record<string, unknown>>;
 				return { ok: true, rows };
