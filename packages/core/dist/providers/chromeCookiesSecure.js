@@ -14,6 +14,10 @@ export async function getCookiesFromChrome(options, origins, allowlistNames) {
         }
     }
     catch (error) {
+        if (isMissingChromeCookiesSecureModule(error)) {
+            // Optional dependency; caller may fall back to other providers.
+            return { cookies: [], warnings };
+        }
         warnings.push(`Failed to load chrome-cookies-secure: ${error instanceof Error ? error.message : String(error)}`);
         return { cookies: [], warnings };
     }
@@ -39,6 +43,17 @@ export async function getCookiesFromChrome(options, origins, allowlistNames) {
         }
     }
     return { cookies: dedupeCookies(cookies), warnings };
+}
+function isMissingChromeCookiesSecureModule(error) {
+    if (!error || typeof error !== 'object')
+        return false;
+    const code = Reflect.get(error, 'code');
+    if (code !== 'ERR_MODULE_NOT_FOUND')
+        return false;
+    const message = Reflect.get(error, 'message');
+    if (typeof message !== 'string')
+        return false;
+    return message.includes('chrome-cookies-secure');
 }
 function normalizeChromeCookie(raw, origin, profile) {
     if (!raw || typeof raw !== 'object')

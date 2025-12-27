@@ -5,7 +5,7 @@
 	"packageManager": "pnpm@10.25.0",
 	"scripts": {
 		"build": "pnpm -r build",
-		"lint": "biome check . && oxlint --type-aware --tsconfig tsconfig.lint.json --config .oxlintrc.json .",
+		"lint": "biome check . && oxlint --type-aware --tsconfig tsconfig.lint.json --config .oxlintrc.json --ignore-pattern \"**/dist/**\" --ignore-pattern \"**/node_modules/**\" --ignore-pattern \"**/coverage/**\" .",
 		"format": "biome format --write .",
 		"test": "vitest run --coverage",
 		"test:bun": "bun test packages/core/tests-bun",

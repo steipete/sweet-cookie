@@ -116,4 +116,27 @@ describe('chrome-cookies-secure provider', () => {
 		expect(res.cookies).toHaveLength(0);
 		expect(res.warnings.join('\n')).toContain('Timed out');
 	});
+
+	it('does not warn when chrome-cookies-secure is not installed', async () => {
+		vi.resetModules();
+
+		vi.doMock('chrome-cookies-secure', () => ({
+			get default() {
+				const error = Object.assign(new Error("Cannot find package 'chrome-cookies-secure'"), {
+					code: 'ERR_MODULE_NOT_FOUND',
+				});
+				throw error;
+			},
+		}));
+
+		const { getCookiesFromChrome } = await import('../src/providers/chromeCookiesSecure.js');
+		const res = await getCookiesFromChrome(
+			{ includeExpired: true },
+			['https://chatgpt.com/'],
+			null
+		);
+
+		expect(res.cookies).toEqual([]);
+		expect(res.warnings).toEqual([]);
+	});
 });
