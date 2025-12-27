@@ -1,11 +1,12 @@
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import path from 'node:path';
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from './chromeSqlite/crypto.js';
 import { getLinuxChromeSafeStoragePassword } from './chromeSqlite/linuxKeyring.js';
 import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
+import { resolveChromiumCookiesDbLinux } from './chromium/linuxPaths.js';
 export async function getCookiesFromChromeSqliteLinux(options, origins, allowlistNames) {
-    const dbPath = resolveChromeCookiesDbLinux(options.profile);
+    const args = { configDirName: 'google-chrome' };
+    if (options.profile !== undefined)
+        args.profile = options.profile;
+    const dbPath = resolveChromiumCookiesDbLinux(args);
     if (!dbPath) {
         return { cookies: [], warnings: ['Chrome cookies database not found.'] };
     }
@@ -44,41 +45,5 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
     const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
     result.warnings.unshift(...keyringWarnings);
     return result;
-}
-function resolveChromeCookiesDbLinux(profile) {
-    const home = homedir();
-    // biome-ignore lint/complexity/useLiteralKeys: process.env is an index signature under strict TS.
-    const configHome = process.env['XDG_CONFIG_HOME']?.trim() || path.join(home, '.config');
-    const root = path.join(configHome, 'google-chrome');
-    if (profile && looksLikePath(profile)) {
-        const candidate = expandPath(profile, home);
-        if (candidate.endsWith('Cookies') && existsSync(candidate))
-            return candidate;
-        const direct = path.join(candidate, 'Cookies');
-        if (existsSync(direct))
-            return direct;
-        const network = path.join(candidate, 'Network', 'Cookies');
-        if (existsSync(network))
-            return network;
-        return null;
-    }
-    const profileDir = profile && profile.trim().length > 0 ? profile.trim() : 'Default';
-    const candidates = [
-        path.join(root, profileDir, 'Cookies'),
-        path.join(root, profileDir, 'Network', 'Cookies'),
-    ];
-    for (const candidate of candidates) {
-        if (existsSync(candidate))
-            return candidate;
-    }
-    return null;
-}
-function looksLikePath(value) {
-    return value.includes('/') || value.includes('\\');
-}
-function expandPath(input, home) {
-    if (input.startsWith('~/'))
-        return path.join(home, input.slice(2));
-    return path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
 }
 //# sourceMappingURL=chromeSqliteLinux.js.map

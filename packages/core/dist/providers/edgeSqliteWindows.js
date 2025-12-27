@@ -1,17 +1,21 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { decryptChromiumAes256GcmCookieValue } from './chromeSqlite/crypto.js';
 import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
-import { dpapiUnprotect } from './chromeSqlite/windowsDpapi.js';
+import { getWindowsChromiumMasterKey } from './chromium/windowsMasterKey.js';
+import { resolveChromiumPathsWindows } from './chromium/windowsPaths.js';
 export async function getCookiesFromEdgeSqliteWindows(options, origins, allowlistNames) {
-    const { dbPath, userDataDir } = resolveEdgePathsWindows(options.profile);
+    const resolveArgs = {
+        localAppDataVendorPath: path.join('Microsoft', 'Edge', 'User Data'),
+    };
+    if (options.profile !== undefined)
+        resolveArgs.profile = options.profile;
+    const { dbPath, userDataDir } = resolveChromiumPathsWindows(resolveArgs);
     if (!dbPath || !userDataDir) {
         return { cookies: [], warnings: ['Edge cookies database not found.'] };
     }
     // On Windows, Edge stores an AES key in `Local State` encrypted with DPAPI (CurrentUser).
     // That master key is then used for AES-256-GCM cookie values (`v10`/`v11`/`v20` prefixes).
-    const masterKey = await getWindowsEdgeMasterKey(userDataDir);
+    const masterKey = await getWindowsChromiumMasterKey(userDataDir, 'Edge');
     if (!masterKey.ok) {
         return { cookies: [], warnings: [masterKey.error] };
     }
@@ -30,99 +34,5 @@ export async function getCookiesFromEdgeSqliteWindows(options, origins, allowlis
     if (options.debug !== undefined)
         dbOptions.debug = options.debug;
     return await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-}
-async function getWindowsEdgeMasterKey(userDataDir) {
-    const localStatePath = path.join(userDataDir, 'Local State');
-    if (!existsSync(localStatePath)) {
-        return { ok: false, error: 'Edge Local State file not found.' };
-    }
-    let encryptedKeyB64 = null;
-    try {
-        const raw = readFileSync(localStatePath, 'utf8');
-        const parsed = JSON.parse(raw);
-        encryptedKeyB64 =
-            typeof parsed.os_crypt?.encrypted_key === 'string' ? parsed.os_crypt.encrypted_key : null;
-    }
-    catch (error) {
-        return {
-            ok: false,
-            error: `Failed to parse Edge Local State: ${error instanceof Error ? error.message : String(error)}`,
-        };
-    }
-    if (!encryptedKeyB64)
-        return { ok: false, error: 'Edge Local State missing os_crypt.encrypted_key.' };
-    let encryptedKey;
-    try {
-        encryptedKey = Buffer.from(encryptedKeyB64, 'base64');
-    }
-    catch {
-        return { ok: false, error: 'Edge Local State contains an invalid encrypted_key.' };
-    }
-    const prefix = Buffer.from('DPAPI', 'utf8');
-    if (!encryptedKey.subarray(0, prefix.length).equals(prefix)) {
-        return { ok: false, error: 'Edge encrypted_key does not start with DPAPI prefix.' };
-    }
-    const unprotected = await dpapiUnprotect(encryptedKey.subarray(prefix.length));
-    if (!unprotected.ok) {
-        return { ok: false, error: `DPAPI decrypt failed: ${unprotected.error}` };
-    }
-    return { ok: true, value: unprotected.value };
-}
-function resolveEdgePathsWindows(profile) {
-    // biome-ignore lint/complexity/useLiteralKeys: process.env is an index signature under strict TS.
-    const localAppData = process.env['LOCALAPPDATA'];
-    const root = localAppData ? path.join(localAppData, 'Microsoft', 'Edge', 'User Data') : null;
-    if (profile && looksLikePath(profile)) {
-        const expanded = expandPath(profile);
-        const candidates = expanded.endsWith('Cookies')
-            ? [expanded]
-            : [
-                path.join(expanded, 'Network', 'Cookies'),
-                path.join(expanded, 'Cookies'),
-                path.join(expanded, 'Default', 'Network', 'Cookies'),
-            ];
-        for (const candidate of candidates) {
-            if (!existsSync(candidate))
-                continue;
-            const userDataDir = findUserDataDir(candidate);
-            return { dbPath: candidate, userDataDir };
-        }
-        if (existsSync(path.join(expanded, 'Local State'))) {
-            return { dbPath: null, userDataDir: expanded };
-        }
-    }
-    const profileDir = profile && profile.trim().length > 0 ? profile.trim() : 'Default';
-    if (!root)
-        return { dbPath: null, userDataDir: null };
-    const candidates = [
-        path.join(root, profileDir, 'Network', 'Cookies'),
-        path.join(root, profileDir, 'Cookies'),
-    ];
-    for (const candidate of candidates) {
-        if (existsSync(candidate))
-            return { dbPath: candidate, userDataDir: root };
-    }
-    return { dbPath: null, userDataDir: root };
-}
-function findUserDataDir(cookiesDbPath) {
-    let current = path.dirname(cookiesDbPath);
-    for (let i = 0; i < 6; i += 1) {
-        const localState = path.join(current, 'Local State');
-        if (existsSync(localState))
-            return current;
-        const next = path.dirname(current);
-        if (next === current)
-            break;
-        current = next;
-    }
-    return null;
-}
-function looksLikePath(value) {
-    return value.includes('/') || value.includes('\\');
-}
-function expandPath(input) {
-    if (input.startsWith('~/'))
-        return path.join(homedir(), input.slice(2));
-    return path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
 }
 //# sourceMappingURL=edgeSqliteWindows.js.map

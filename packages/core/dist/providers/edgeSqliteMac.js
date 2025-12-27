@@ -1,9 +1,9 @@
-import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { execCapture } from '../util/exec.js';
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from './chromeSqlite/crypto.js';
 import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
+import { readKeychainGenericPasswordFirst } from './chromium/macosKeychain.js';
+import { resolveCookiesDbFromProfileOrRoots } from './chromium/paths.js';
 export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNames) {
     const dbPath = resolveEdgeCookiesDb(options.profile);
     if (!dbPath) {
@@ -12,12 +12,17 @@ export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNam
     const warnings = [];
     // On macOS, Edge stores its "Safe Storage" secret in Keychain (same scheme as Chrome).
     // `security find-generic-password` is stable and avoids any native Node keychain modules.
-    const passwordResult = await readEdgeSafeStoragePassword(options.timeoutMs ?? 3_000);
+    const passwordResult = await readKeychainGenericPasswordFirst({
+        account: 'Microsoft Edge',
+        services: ['Microsoft Edge Safe Storage', 'Microsoft Edge'],
+        timeoutMs: options.timeoutMs ?? 3_000,
+        label: 'Microsoft Edge Safe Storage',
+    });
     if (!passwordResult.ok) {
         warnings.push(passwordResult.error);
         return { cookies: [], warnings };
     }
-    const edgePassword = passwordResult.value.trim();
+    const edgePassword = passwordResult.password.trim();
     if (!edgePassword) {
         warnings.push('macOS Keychain returned an empty Microsoft Edge Safe Storage password.');
         return { cookies: [], warnings };
@@ -41,66 +46,15 @@ export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNam
     result.warnings.unshift(...warnings);
     return result;
 }
-async function readEdgeSafeStoragePassword(timeoutMs) {
-    // Primary: stable Edge keychain item name.
-    const attempts = [
-        { account: 'Microsoft Edge', service: 'Microsoft Edge Safe Storage' },
-        // Some setups use different account/service labels. Keep a small fallback list.
-        { account: 'Microsoft Edge', service: 'Microsoft Edge' },
-    ];
-    for (const attempt of attempts) {
-        const res = await execCapture('security', ['find-generic-password', '-w', '-a', attempt.account, '-s', attempt.service], { timeoutMs });
-        if (res.code === 0)
-            return { ok: true, value: res.stdout };
-    }
-    return {
-        ok: false,
-        error: 'Failed to read macOS Keychain (Microsoft Edge Safe Storage): ' +
-            'permission denied / keychain locked / entry missing.',
-    };
-}
 function resolveEdgeCookiesDb(profile) {
     const home = homedir();
     /* c8 ignore next */
     const roots = process.platform === 'darwin'
         ? [path.join(home, 'Library', 'Application Support', 'Microsoft Edge')]
         : [];
-    const candidates = [];
-    if (profile && looksLikePath(profile)) {
-        const expanded = expandPath(profile);
-        const stat = safeStat(expanded);
-        if (stat?.isFile())
-            return expanded;
-        candidates.push(path.join(expanded, 'Cookies'));
-        candidates.push(path.join(expanded, 'Network', 'Cookies'));
-    }
-    else {
-        const profileDir = profile && profile.trim().length > 0 ? profile.trim() : 'Default';
-        for (const root of roots) {
-            candidates.push(path.join(root, profileDir, 'Cookies'));
-            candidates.push(path.join(root, profileDir, 'Network', 'Cookies'));
-        }
-    }
-    for (const candidate of candidates) {
-        if (existsSync(candidate))
-            return candidate;
-    }
-    return null;
-}
-function safeStat(candidate) {
-    try {
-        return statSync(candidate);
-    }
-    catch {
-        return null;
-    }
-}
-function expandPath(input) {
-    if (input.startsWith('~/'))
-        return path.join(homedir(), input.slice(2));
-    return path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
-}
-function looksLikePath(value) {
-    return value.includes('/') || value.includes('\\');
+    const args = { roots };
+    if (profile !== undefined)
+        args.profile = profile;
+    return resolveCookiesDbFromProfileOrRoots(args);
 }
 //# sourceMappingURL=edgeSqliteMac.js.map

@@ -1,7 +1,3 @@
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import path from 'node:path';
-
 import type { GetCookiesResult } from '../types.js';
 import {
 	decryptChromiumAes128CbcCookieValue,
@@ -9,13 +5,16 @@ import {
 } from './chromeSqlite/crypto.js';
 import { getLinuxChromiumSafeStoragePassword } from './chromeSqlite/linuxKeyring.js';
 import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
+import { resolveChromiumCookiesDbLinux } from './chromium/linuxPaths.js';
 
 export async function getCookiesFromEdgeSqliteLinux(
 	options: { profile?: string; includeExpired?: boolean; debug?: boolean },
 	origins: string[],
 	allowlistNames: Set<string> | null
 ): Promise<GetCookiesResult> {
-	const dbPath = resolveEdgeCookiesDbLinux(options.profile);
+	const args: Parameters<typeof resolveChromiumCookiesDbLinux>[0] = { configDirName: 'microsoft-edge' };
+	if (options.profile !== undefined) args.profile = options.profile;
+	const dbPath = resolveChromiumCookiesDbLinux(args);
 	if (!dbPath) {
 		return { cookies: [], warnings: ['Edge cookies database not found.'] };
 	}
@@ -62,40 +61,4 @@ export async function getCookiesFromEdgeSqliteLinux(
 	const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
 	result.warnings.unshift(...keyringWarnings);
 	return result;
-}
-
-function resolveEdgeCookiesDbLinux(profile?: string): string | null {
-	const home = homedir();
-	// biome-ignore lint/complexity/useLiteralKeys: process.env is an index signature under strict TS.
-	const configHome = process.env['XDG_CONFIG_HOME']?.trim() || path.join(home, '.config');
-	const root = path.join(configHome, 'microsoft-edge');
-
-	if (profile && looksLikePath(profile)) {
-		const candidate = expandPath(profile, home);
-		if (candidate.endsWith('Cookies') && existsSync(candidate)) return candidate;
-		const direct = path.join(candidate, 'Cookies');
-		if (existsSync(direct)) return direct;
-		const network = path.join(candidate, 'Network', 'Cookies');
-		if (existsSync(network)) return network;
-		return null;
-	}
-
-	const profileDir = profile && profile.trim().length > 0 ? profile.trim() : 'Default';
-	const candidates = [
-		path.join(root, profileDir, 'Cookies'),
-		path.join(root, profileDir, 'Network', 'Cookies'),
-	];
-	for (const candidate of candidates) {
-		if (existsSync(candidate)) return candidate;
-	}
-	return null;
-}
-
-function looksLikePath(value: string): boolean {
-	return value.includes('/') || value.includes('\\');
-}
-
-function expandPath(input: string, home: string): string {
-	if (input.startsWith('~/')) return path.join(home, input.slice(2));
-	return path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
 }
