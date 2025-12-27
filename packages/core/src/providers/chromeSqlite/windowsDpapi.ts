@@ -7,7 +7,10 @@ export async function dpapiUnprotect(
 	const timeoutMs = options.timeoutMs ?? 5_000;
 
 	const inputB64 = data.toString('base64');
+	const prelude =
+		'try { Add-Type -AssemblyName System.Security.Cryptography.ProtectedData -ErrorAction Stop } catch { try { Add-Type -AssemblyName System.Security -ErrorAction Stop } catch {} };';
 	const script =
+		prelude +
 		`$in=[Convert]::FromBase64String('${inputB64}');` +
 		`$out=[System.Security.Cryptography.ProtectedData]::Unprotect($in,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);` +
 		`[Convert]::ToBase64String($out)`;

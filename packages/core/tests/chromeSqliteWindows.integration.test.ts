@@ -10,7 +10,10 @@ const describeIfWin = process.platform === 'win32' ? describe : describe.skip;
 
 function dpapiProtect(data: Buffer): Buffer {
 	const inputB64 = data.toString('base64');
+	const prelude =
+		'try { Add-Type -AssemblyName System.Security.Cryptography.ProtectedData -ErrorAction Stop } catch { try { Add-Type -AssemblyName System.Security -ErrorAction Stop } catch {} };';
 	const script =
+		prelude +
 		`$in=[Convert]::FromBase64String('${inputB64}');` +
 		`$out=[System.Security.Cryptography.ProtectedData]::Protect($in,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);` +
 		`[Convert]::ToBase64String($out)`;

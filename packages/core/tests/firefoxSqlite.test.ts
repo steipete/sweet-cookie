@@ -184,18 +184,10 @@ describe('firefox sqlite provider', () => {
 	it('handles unreadable profile roots gracefully', async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-firefox-'));
 		const homeDir = path.join(dir, 'home');
-		const profilesRoot = path.join(
-			homeDir,
-			'Library',
-			'Application Support',
-			'Firefox',
-			'Profiles'
-		);
+		const profilesRoot = stubFirefoxProfilesRoot(homeDir);
 
 		mkdirSync(path.dirname(profilesRoot), { recursive: true });
 		writeFileSync(profilesRoot, 'not a dir', 'utf8');
-
-		vi.stubEnv('HOME', homeDir);
 
 		const res = await getCookiesFromFirefox(
 			{ includeExpired: true },
