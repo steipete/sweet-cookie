@@ -7,6 +7,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCookiesFromChromeSqliteMac } from '../src/providers/chromeSqliteMac.js';
 
+function prependToPath(dir: string): void {
+	const parts = [dir, process.env.PATH ?? ''].filter(Boolean);
+	vi.stubEnv('PATH', parts.join(path.delimiter));
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: test-only control surface
 const nodeSqlite = vi.hoisted(() => ({ rows: [] as any[], shouldThrow: false }));
 // biome-ignore lint/suspicious/noExplicitAny: test-only control surface
@@ -108,7 +113,7 @@ describe('chrome sqlite (mac) provider', () => {
 
 		const password = 'test-password';
 		writeShim(binDir, 'security', { stdout: `${password}\n`, exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const encrypted = encryptChromeCookieValueMac('cookie-value', password);
 		nodeSqlite.rows = [
@@ -149,7 +154,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stdout: 'ignored\n', exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		nodeSqlite.rows = [
 			{
@@ -184,7 +189,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stdout: 'ignored\n', exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		nodeSqlite.rows = [
 			{
@@ -219,7 +224,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stderr: 'nope', exitCode: 1 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const res = await getCookiesFromChromeSqliteMac(
 			{ profile: profileDir, includeExpired: true },
@@ -240,7 +245,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stdout: '\n', exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const res = await getCookiesFromChromeSqliteMac(
 			{ profile: profileDir, includeExpired: true },
@@ -261,7 +266,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stdout: 'pw\n', exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		nodeSqlite.shouldThrow = true;
 		const res = await getCookiesFromChromeSqliteMac(
@@ -283,7 +288,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stdout: 'pw\n', exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		nodeSqlite.rows = [
 			{
@@ -334,7 +339,7 @@ describe('chrome sqlite (mac) provider', () => {
 
 		const password = 'pw';
 		writeShim(binDir, 'security', { stdout: `${password}\n`, exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const encrypted = encryptChromeCookieValueMac('cookie-value', password);
 		nodeSqlite.rows = [
@@ -370,7 +375,7 @@ describe('chrome sqlite (mac) provider', () => {
 
 		const password = 'pw';
 		writeShim(binDir, 'security', { stdout: `${password}\n`, exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const encrypted = encryptChromeCookieValueMac('cookie-value', password);
 		nodeSqlite.rows = [
@@ -406,7 +411,7 @@ describe('chrome sqlite (mac) provider', () => {
 
 		const password = 'pw';
 		writeShim(binDir, 'security', { stdout: `${password}\n`, exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const encrypted = encryptChromeCookieValueMac('cookie-value', password);
 		nodeSqlite.rows = [
@@ -441,7 +446,7 @@ describe('chrome sqlite (mac) provider', () => {
 
 		const password = 'pw';
 		writeShim(binDir, 'security', { stdout: `${password}\n`, exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const encrypted = encryptChromeCookieValueMac('cookie-value', password);
 		bunSqlite.rows = [
@@ -481,7 +486,7 @@ describe('chrome sqlite (mac) provider', () => {
 		writeFileSync(path.join(profileDir, 'Cookies'), '', 'utf8');
 
 		writeShim(binDir, 'security', { stdout: 'pw\n', exitCode: 0 });
-		vi.stubEnv('PATH', `${binDir}:${process.env.PATH ?? ''}`);
+		prependToPath(binDir);
 
 		const prev = (process.versions as unknown as { bun?: string }).bun;
 		(process.versions as unknown as { bun?: string }).bun = '1.0.0';
