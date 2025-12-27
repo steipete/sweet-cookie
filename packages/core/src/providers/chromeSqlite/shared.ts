@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { Cookie, CookieSameSite, GetCookiesResult } from '../../types.js';
 import { normalizeExpiration } from '../../util/expire.js';
 import { hostMatchesCookieDomain } from '../../util/hostMatch.js';
+import { importNodeSqlite } from '../../util/nodeSqlite.js';
 import { isBunRuntime } from '../../util/runtime.js';
 
 type ChromeRow = {
@@ -232,7 +233,7 @@ async function queryNodeOrBun(options: {
 		if (options.kind === 'node') {
 			// Node's `node:sqlite` is synchronous and returns plain JS values. Keep it boxed in a
 			// small scope so callers don't need to care about runtime differences.
-			const { DatabaseSync } = await import('node:sqlite');
+			const { DatabaseSync } = await importNodeSqlite();
 			const db = new DatabaseSync(options.dbPath, { readOnly: true });
 			try {
 				const rows = db.prepare(options.sql).all() as Array<Record<string, unknown>>;

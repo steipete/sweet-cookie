@@ -1,19 +1,24 @@
 import { execCapture } from '../../util/exec.js';
 export async function getLinuxChromeSafeStoragePassword(options = {}) {
     const warnings = [];
+    // Escape hatch: if callers already know the password (or want deterministic CI behavior),
+    // they can bypass keyring probing entirely.
     const override = readEnv('SWEET_COOKIE_CHROME_SAFE_STORAGE_PASSWORD');
     if (override !== undefined)
         return { password: override, warnings };
     const backend = options.backend ?? parseLinuxKeyringBackend() ?? chooseLinuxKeyringBackend();
+    // `basic` means "don't try keyrings" (Chrome will fall back to older/less-secure schemes on some setups).
     if (backend === 'basic')
         return { password: '', warnings };
     if (backend === 'gnome') {
+        // GNOME keyring: `secret-tool` is the simplest way to read libsecret entries.
         const res = await execCapture('secret-tool', ['lookup', 'service', 'Chrome Safe Storage', 'account', 'Chrome'], { timeoutMs: 3_000 });
         if (res.code === 0)
             return { password: res.stdout.trim(), warnings };
         warnings.push('Failed to read Linux keyring via secret-tool; v11 cookies may be unavailable.');
         return { password: '', warnings };
     }
+    // KDE keyring: query KWallet via `kwallet-query`, but the wallet name differs across KDE versions.
     const kdeVersion = (readEnv('KDE_SESSION_VERSION') ?? '').trim();
     const serviceName = kdeVersion === '6'
         ? 'org.kde.kwalletd6'

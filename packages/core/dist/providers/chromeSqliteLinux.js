@@ -10,6 +10,9 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
         return { cookies: [], warnings: ['Chrome cookies database not found.'] };
     }
     const { password, warnings: keyringWarnings } = await getLinuxChromeSafeStoragePassword();
+    // Linux uses multiple schemes depending on distro/keyring availability.
+    // - v10 often uses the hard-coded "peanuts" password
+    // - v11 uses "Chrome Safe Storage" from the keyring (may be empty/unavailable)
     const v10Key = deriveAes128CbcKeyFromPassword('peanuts', { iterations: 1 });
     const emptyKey = deriveAes128CbcKeyFromPassword('', { iterations: 1 });
     const v11Key = deriveAes128CbcKeyFromPassword(password, { iterations: 1 });

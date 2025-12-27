@@ -5,6 +5,8 @@ import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { importNodeSqlite } from '../src/util/nodeSqlite.js';
+
 const describeIfLinux = process.platform === 'linux' ? describe : describe.skip;
 
 function encryptAes128CbcCookieValue(options: {
@@ -41,7 +43,7 @@ async function createChromiumCookiesDb(options: {
 		encrypted_value: Uint8Array;
 	}>;
 }): Promise<void> {
-	const { DatabaseSync } = await import('node:sqlite');
+	const { DatabaseSync } = await importNodeSqlite();
 	const db = new DatabaseSync(options.dbPath);
 	try {
 		db.exec('CREATE TABLE meta (key TEXT PRIMARY KEY, value INTEGER);');

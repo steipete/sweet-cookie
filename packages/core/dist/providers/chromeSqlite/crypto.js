@@ -1,15 +1,20 @@
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto';
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 export function deriveAes128CbcKeyFromPassword(password, options) {
+    // Chromium derives the AES-128-CBC key from "Chrome Safe Storage" using PBKDF2.
+    // The salt/length/digest are fixed by Chromium ("saltysalt", 16 bytes, sha1).
     return pbkdf2Sync(password, 'saltysalt', options.iterations, 16, 'sha1');
 }
 export function decryptChromiumAes128CbcCookieValue(encryptedValue, keyCandidates, options) {
     const buf = Buffer.from(encryptedValue);
     if (buf.length < 3)
         return null;
+    // Chromium prefixes encrypted cookies with `v10`, `v11`, ... (three bytes).
     const prefix = buf.subarray(0, 3).toString('utf8');
     const hasVersionPrefix = /^v\d\d$/.test(prefix);
     if (!hasVersionPrefix) {
+        // Some platforms (notably macOS) can store plaintext values in `encrypted_value`.
+        // Callers decide whether unknown prefixes should be treated as plaintext.
         if (options.treatUnknownPrefixAsPlaintext === false)
             return null;
         return decodeCookieValueBytes(buf, false);
@@ -18,6 +23,7 @@ export function decryptChromiumAes128CbcCookieValue(encryptedValue, keyCandidate
     if (!ciphertext.length)
         return '';
     for (const key of keyCandidates) {
+        // Try multiple candidates because Linux may fall back to empty passwords depending on keyring state.
         const decrypted = tryDecryptAes128Cbc(ciphertext, key);
         if (!decrypted)
             continue;
@@ -34,6 +40,10 @@ export function decryptChromiumAes256GcmCookieValue(encryptedValue, key, options
     const prefix = buf.subarray(0, 3).toString('utf8');
     if (!/^v\d\d$/.test(prefix))
         return null;
+    // AES-256-GCM layout:
+    // - 12-byte nonce
+    // - ciphertext
+    // - 16-byte authentication tag
     const payload = buf.subarray(3);
     if (payload.length < 12 + 16)
         return null;
@@ -52,6 +62,7 @@ export function decryptChromiumAes256GcmCookieValue(encryptedValue, key, options
 }
 function tryDecryptAes128Cbc(ciphertext, key) {
     try {
+        // Chromium's legacy AES-128-CBC uses an IV of 16 spaces.
         const iv = Buffer.alloc(16, 0x20);
         const decipher = createDecipheriv('aes-128-cbc', key, iv);
         decipher.setAutoPadding(false);
@@ -71,6 +82,7 @@ function removePkcs7Padding(value) {
     return value.subarray(0, value.length - padding);
 }
 function decodeCookieValueBytes(value, stripHashPrefix) {
+    // Chromium >= 24 prepends a 32-byte hash to cookie values.
     const bytes = stripHashPrefix && value.length >= 32 ? value.subarray(32) : value;
     try {
         return stripLeadingControlChars(UTF8_DECODER.decode(bytes));

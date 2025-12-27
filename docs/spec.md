@@ -1,15 +1,15 @@
-# Sweet Cookie Brunch — Cookie Extraction Spec
+# Sweet Cookie — Cookie Extraction Spec
 
 ## Goal
 
-Standardize cookie extraction across Peter’s TypeScript tools:
+Standardize cookie extraction for TypeScript tools:
 - `@steipete/sweet-cookie` (library): one API to load cookies from inline payloads + local browsers.
-- `apps/extension` (Chrome MV3): “escape hatch” exporter for cases where native/DB reads fail.
+- `apps/extension` (Chrome MV3): optional “escape hatch” exporter for cases where local reads fail (locked down OS, app-bound cookies, keychain prompts, etc).
 
 Primary use-cases:
-- One implementation used by `oracle`, `sweetlink`, `summarize`, etc.
-- Escape hatches for “native module pain” (Node vs Bun vs CI) + keychain prompts.
-- Windows/locked-down environments where DB-based reads are flaky (DPAPI/app-bound cookies) → extension export.
+- Use cookies for HTTP clients (build `Cookie` header).
+- Use cookies for browser automation (CDP-ish cookie objects).
+- Prefer zero native module builds; rely on Node/Bun built-ins + OS tooling.
 
 ## Non-goals
 
@@ -37,7 +37,6 @@ High-signal options:
 - `includeExpired`: include expired cookies
 - Inline inputs (escape hatch):
   - `inlineCookiesJson`, `inlineCookiesBase64`, `inlineCookiesFile`
-  - `oracleInlineFallback`: also tries `~/.oracle/cookies.{json,base64}`
 
 ### Provider order
 
@@ -48,7 +47,7 @@ High-signal options:
      - decrypt:
        - macOS: Keychain `security` (Chrome Safe Storage)
        - Windows: DPAPI unwrap (Local State) + AES-GCM
-       - Linux: v10 (peanuts) + v11 (keyring via `secret-tool` or `kwallet-query` + `dbus-send`)
+      - Linux: v10 (peanuts) + v11 (keyring via `secret-tool` or `kwallet-query` + `dbus-send`)
      - app-bound cookies: expect failures; prefer inline/export
    - **Firefox**
      - Bun: `bun:sqlite`
@@ -67,12 +66,10 @@ High-signal options:
 
 ## Outputs (formats)
 
-### 1) Oracle inline cookies (preferred)
+### 1) JSON (preferred)
 
-Oracle accepts `Protocol.Network.CookieParam[]` (“CDP cookie params”).
-
-Sweet Cookie exports:
-- `cookies`: array of objects compatible with `Protocol.Network.CookieParam`
+Export a JSON file containing:
+- `cookies`: array of cookie objects compatible with common “CDP-ish” shapes
 - `meta`: versioning + provenance
 
 Example shape:
@@ -100,7 +97,7 @@ Example shape:
 ```
 
 Notes:
-- `oracle` will normalize missing fields and can attach `url` if needed; keeping `domain` is fine, but if `url` is set, Oracle will drop `domain` before calling CDP.
+- Some CDP APIs require `url` instead of `domain`; consumers can derive `url` from `targetUrl` + `domain` if needed.
 - `expires` should be unix seconds when available; omit when session cookie.
 
 ### 2) Base64 payload (clipboard-friendly)
@@ -108,12 +105,11 @@ Notes:
 Same JSON as (1), then base64-encode the full JSON string.
 
 Use-cases:
-- paste into `ORACLE_BROWSER_COOKIES_JSON` (if you want to keep env-only flows)
 - quick transfer over chat
 
 ### 3) Puppeteer cookies (optional)
 
-Some callers use Puppeteer’s cookie shape (`Secure`/`HttpOnly` capitalization). This is optional since Oracle prefers CDP `CookieParam`.
+Some callers use Puppeteer’s cookie shape (`Secure`/`HttpOnly` capitalization). This is optional if you standardize on the library’s `Cookie` shape and only convert at the edges.
 
 ## Inputs / UI
 
@@ -130,9 +126,7 @@ Defaults:
 - `allowlist` = empty (export all) unless a preset is chosen
 
 Presets (optional, for speed):
-- ChatGPT (chatgpt.com)
-- Gemini (google.com / gemini.google.com)
-- X (x.com / twitter.com)
+- “Site A” / “Site B” examples for repeated workflows
 
 ## Permissions model (Manifest V3)
 
@@ -181,21 +175,6 @@ Important: avoid re-implementing RFC cookie matching/order. If we export for reu
 - No logging raw cookie values (ever). UI should show redacted values only.
 - Offer “allowlist names” as a first-class control.
 - Prefer in-memory only. If we add “save presets”, store *only* domains/origins/allowlists, never values.
-
-## Integration targets
-
-### Oracle
-
-- File: download `sweet-cookie.cookies.json`, then:
-  - `oracle --engine browser --browser-inline-cookies-file sweet-cookie.cookies.json …`
-- Or base64:
-  - set `ORACLE_BROWSER_COOKIES_JSON=<base64>`
-
-### SweetLink
-
-SweetLink currently syncs via `chrome-cookies-secure` (native). Sweet Cookie is the escape hatch when native bindings or keychain access fails:
-- Export cookies for the app origin and OAuth origins in `cookieMappings`
-- SweetLink can accept an inline cookies file/env in a future addition (not in scope for this doc)
 
 ## Versioning
 

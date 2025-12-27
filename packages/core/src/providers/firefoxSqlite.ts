@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import type { Cookie, CookieSameSite, GetCookiesResult } from '../types.js';
 import { hostMatchesCookieDomain } from '../util/hostMatch.js';
+import { importNodeSqlite } from '../util/nodeSqlite.js';
 import { isBunRuntime } from '../util/runtime.js';
 
 export async function getCookiesFromFirefox(
@@ -79,7 +80,7 @@ async function queryFirefoxCookiesWithNodeSqlite(
 	sql: string
 ): Promise<{ ok: true; rows: FirefoxRow[] } | { ok: false; error: string }> {
 	try {
-		const { DatabaseSync } = await import('node:sqlite');
+		const { DatabaseSync } = await importNodeSqlite();
 		const db = new DatabaseSync(dbPath, { readOnly: true });
 		try {
 			const rows = db.prepare(sql).all() as FirefoxRow[];

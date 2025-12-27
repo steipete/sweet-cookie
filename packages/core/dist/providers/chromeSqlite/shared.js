@@ -3,13 +3,18 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { normalizeExpiration } from '../../util/expire.js';
 import { hostMatchesCookieDomain } from '../../util/hostMatch.js';
+import { importNodeSqlite } from '../../util/nodeSqlite.js';
 import { isBunRuntime } from '../../util/runtime.js';
 export async function getCookiesFromChromeSqliteDb(options, origins, allowlistNames, decrypt) {
     const warnings = [];
+    // Chrome can keep its cookie DB locked and/or rely on WAL sidecars.
+    // Copying to a temp dir gives us a stable snapshot that both node:sqlite and bun:sqlite can open.
     const tempDir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-chrome-'));
     const tempDbPath = path.join(tempDir, 'Cookies');
     try {
         copyFileSync(options.dbPath, tempDbPath);
+        // If WAL is enabled, the latest writes might live in `Cookies-wal`/`Cookies-shm`.
+        // Copy them too when present so our snapshot reflects the current browser state.
         copySidecar(options.dbPath, `${tempDbPath}-wal`, '-wal');
         copySidecar(options.dbPath, `${tempDbPath}-shm`, '-shm');
     }
@@ -22,6 +27,8 @@ export async function getCookiesFromChromeSqliteDb(options, origins, allowlistNa
         const hosts = origins.map((o) => new URL(o).hostname);
         const where = buildHostWhereClause(hosts, 'host_key');
         const metaVersion = await readChromiumMetaVersion(tempDbPath);
+        // Chromium >= 24 stores a 32-byte hash prefix in decrypted cookie values.
+        // We detect this via the `meta` table version and strip it when present.
         const stripHashPrefix = metaVersion >= 24;
         const rowsResult = await readChromeRows(tempDbPath, where);
         if (!rowsResult.ok) {
@@ -59,6 +66,8 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
         const valueString = typeof row.value === 'string' ? row.value : null;
         let value = valueString;
         if (value === null || value.length === 0) {
+            // Many modern Chromium cookies keep `value` empty and only store `encrypted_value`.
+            // We decrypt on demand and drop rows we can't interpret.
             const encryptedBytes = getEncryptedBytes(row);
             if (!encryptedBytes) {
                 if (!warnedEncryptedType && row.encrypted_value !== undefined) {
@@ -156,33 +165,25 @@ async function readChromiumMetaVersion(dbPath) {
 async function readChromeRows(dbPath, where) {
     const sqliteKind = isBunRuntime() ? 'bun' : 'node';
     const sqliteLabel = sqliteKind === 'bun' ? 'bun:sqlite' : 'node:sqlite';
-    const baseSelect = `SELECT name, value, host_key, path, expires_utc, samesite, encrypted_value, ` +
-        `{SECURE} AS is_secure, {HTTPONLY} AS is_httponly ` +
+    const sql = `SELECT name, value, host_key, path, expires_utc, samesite, encrypted_value, ` +
+        `is_secure AS is_secure, is_httponly AS is_httponly ` +
         `FROM cookies WHERE (${where}) ORDER BY expires_utc DESC;`;
-    const queries = [
-        baseSelect.replace('{SECURE}', 'is_secure').replace('{HTTPONLY}', 'is_httponly'),
-        baseSelect.replace('{SECURE}', 'secure').replace('{HTTPONLY}', 'httponly'),
-    ];
-    for (const sql of queries) {
-        const result = await queryNodeOrBun({ kind: sqliteKind, dbPath, sql });
-        if (result.ok)
-            return { ok: true, rows: result.rows };
-        if (!looksLikeMissingColumnError(result.error)) {
-            return {
-                ok: false,
-                error: `${sqliteLabel} failed reading Chrome cookies: ${result.error}`,
-            };
-        }
-    }
-    return { ok: false, error: 'Failed reading Chrome cookies: unsupported cookies schema.' };
-}
-function looksLikeMissingColumnError(error) {
-    return error.toLowerCase().includes('no such column');
+    const result = await queryNodeOrBun({ kind: sqliteKind, dbPath, sql });
+    if (result.ok)
+        return { ok: true, rows: result.rows };
+    // Intentionally strict: only support modern Chromium cookie DB schemas.
+    // If this fails, assume the local Chrome/Chromium is too old or uses a non-standard schema.
+    return {
+        ok: false,
+        error: `${sqliteLabel} failed reading Chrome cookies (requires modern Chromium, e.g. Chrome >= 100): ${result.error}`,
+    };
 }
 async function queryNodeOrBun(options) {
     try {
         if (options.kind === 'node') {
-            const { DatabaseSync } = await import('node:sqlite');
+            // Node's `node:sqlite` is synchronous and returns plain JS values. Keep it boxed in a
+            // small scope so callers don't need to care about runtime differences.
+            const { DatabaseSync } = await importNodeSqlite();
             const db = new DatabaseSync(options.dbPath, { readOnly: true });
             try {
                 const rows = db.prepare(options.sql).all();
@@ -192,6 +193,7 @@ async function queryNodeOrBun(options) {
                 db.close();
             }
         }
+        // Bun's sqlite API has a different surface (`Database` + `.query().all()`).
         const { Database } = await import('bun:sqlite');
         const db = new Database(options.dbPath, { readonly: true });
         try {

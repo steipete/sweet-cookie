@@ -3,6 +3,7 @@ import { getCookiesFromChromeSqliteMac } from './chromeSqliteMac.js';
 import { getCookiesFromChromeSqliteWindows } from './chromeSqliteWindows.js';
 export async function getCookiesFromChrome(options, origins, allowlistNames) {
     const warnings = [];
+    // Platform dispatch only. All real logic lives in the per-OS providers.
     if (process.platform === 'darwin') {
         const r = await getCookiesFromChromeSqliteMac(options, origins, allowlistNames);
         warnings.push(...r.warnings);

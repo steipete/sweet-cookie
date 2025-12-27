@@ -10,6 +10,8 @@ export async function getCookiesFromChromeSqliteMac(options, origins, allowlistN
         return { cookies: [], warnings: ['Chrome cookies database not found.'] };
     }
     const warnings = [];
+    // On macOS, Chrome stores its "Safe Storage" secret in Keychain.
+    // `security find-generic-password` is stable and avoids any native Node keychain modules.
     const passwordResult = await execCapture('security', ['find-generic-password', '-w', '-a', 'Chrome', '-s', 'Chrome Safe Storage'], { timeoutMs: 3_000 });
     if (passwordResult.code !== 0) {
         warnings.push(`Failed to read macOS Keychain (Chrome Safe Storage): ${passwordResult.stderr.trim() || `exit ${passwordResult.code}`}`);
@@ -20,6 +22,7 @@ export async function getCookiesFromChromeSqliteMac(options, origins, allowlistN
         warnings.push('macOS Keychain returned an empty Chrome Safe Storage password.');
         return { cookies: [], warnings };
     }
+    // Chromium uses PBKDF2(password, "saltysalt", 1003, 16, sha1) for AES-128-CBC cookie values on macOS.
     const key = deriveAes128CbcKeyFromPassword(chromePassword, { iterations: 1003 });
     const decrypt = (encryptedValue, opts) => decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
         stripHashPrefix: opts.stripHashPrefix,

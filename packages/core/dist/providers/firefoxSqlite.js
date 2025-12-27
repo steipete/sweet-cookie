@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync } from 'node
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { hostMatchesCookieDomain } from '../util/hostMatch.js';
+import { importNodeSqlite } from '../util/nodeSqlite.js';
 import { isBunRuntime } from '../util/runtime.js';
 export async function getCookiesFromFirefox(options, origins, allowlistNames) {
     const warnings = [];
@@ -52,7 +53,7 @@ export async function getCookiesFromFirefox(options, origins, allowlistNames) {
 }
 async function queryFirefoxCookiesWithNodeSqlite(dbPath, sql) {
     try {
-        const { DatabaseSync } = await import('node:sqlite');
+        const { DatabaseSync } = await importNodeSqlite();
         const db = new DatabaseSync(dbPath, { readOnly: true });
         try {
             const rows = db.prepare(sql).all();

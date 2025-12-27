@@ -6,6 +6,8 @@ import path from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { importNodeSqlite } from '../src/util/nodeSqlite.js';
+
 const describeIfWin = process.platform === 'win32' ? describe : describe.skip;
 
 function dpapiProtect(data: Buffer): Buffer {
@@ -46,7 +48,7 @@ async function createChromiumCookiesDb(options: {
 	host: string;
 	encryptedValue: Uint8Array;
 }): Promise<void> {
-	const { DatabaseSync } = await import('node:sqlite');
+	const { DatabaseSync } = await importNodeSqlite();
 	const db = new DatabaseSync(options.dbPath);
 	try {
 		db.exec('CREATE TABLE meta (key TEXT PRIMARY KEY, value INTEGER);');
