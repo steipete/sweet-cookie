@@ -15,8 +15,13 @@
 		"build": "tsc -p tsconfig.json",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
-	"optionalDependencies": {
-		"chrome-cookies-secure": "3.0.0"
+	"peerDependencies": {
+		"chrome-cookies-secure": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"chrome-cookies-secure": {
+			"optional": true
+		}
 	},
 	"engines": {
 		"node": ">=22"
