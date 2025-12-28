@@ -1,4 +1,4 @@
-# Sweet Cookie
+# Sweet Cookie 🍪 — Inline-first browser cookie extraction (no native addons)
 
 Small, dependency-light cookie extraction for local tooling.
 
@@ -71,6 +71,7 @@ await getCookies({
   browsers: ['chrome'], // or ['edge']
   chromeProfile: 'Default', // or '/path/to/.../Network/Cookies'
 });
+```
 
 Pick a specific Edge profile or pass an explicit Edge cookie DB path:
 
@@ -80,7 +81,6 @@ await getCookies({
   browsers: ['edge'],
   edgeProfile: 'Default', // or '/path/to/.../Network/Cookies'
 });
-```
 ```
 
 Inline cookies (works on any OS/runtime; no browser DB access required):
