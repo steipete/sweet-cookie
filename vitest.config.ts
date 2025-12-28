@@ -4,16 +4,19 @@ const coverageExclude = ['**/*.d.ts', '**/dist/**', '**/node_modules/**', '**/te
 
 if (process.platform !== 'darwin') {
 	coverageExclude.push('packages/core/src/providers/safariBinaryCookies.ts');
+	coverageExclude.push('packages/core/src/providers/edgeSqliteMac.ts');
 }
 
 if (process.platform !== 'linux') {
 	coverageExclude.push('packages/core/src/providers/chromeSqliteLinux.ts');
 	coverageExclude.push('packages/core/src/providers/chromeSqlite/linuxKeyring.ts');
+	coverageExclude.push('packages/core/src/providers/edgeSqliteLinux.ts');
 }
 
 if (process.platform !== 'win32') {
 	coverageExclude.push('packages/core/src/providers/chromeSqliteWindows.ts');
 	coverageExclude.push('packages/core/src/providers/chromeSqlite/windowsDpapi.ts');
+	coverageExclude.push('packages/core/src/providers/edgeSqliteWindows.ts');
 }
 
 export default defineConfig({
