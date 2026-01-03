@@ -1,10 +1,11 @@
 import type { Cookie, GetCookiesResult } from '../types.js';
 import { getCookiesFromChromeSqliteLinux } from './chromeSqliteLinux.js';
+import type { ChromiumBrowserId } from './chromeSqliteMac.js';
 import { getCookiesFromChromeSqliteMac } from './chromeSqliteMac.js';
 import { getCookiesFromChromeSqliteWindows } from './chromeSqliteWindows.js';
 
 export async function getCookiesFromChrome(
-	options: { profile?: string; timeoutMs?: number; includeExpired?: boolean; debug?: boolean },
+	options: { profile?: string; timeoutMs?: number; includeExpired?: boolean; debug?: boolean; chromiumBrowser?: ChromiumBrowserId },
 	origins: string[],
 	allowlistNames: Set<string> | null
 ): Promise<GetCookiesResult> {

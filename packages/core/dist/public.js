@@ -67,6 +67,8 @@ export async function getCookies(options) {
                 chromeOptions.includeExpired = options.includeExpired;
             if (options.debug !== undefined)
                 chromeOptions.debug = options.debug;
+            if (options.chromiumBrowser !== undefined)
+                chromeOptions.chromiumBrowser = options.chromiumBrowser;
             result = await getCookiesFromChrome(chromeOptions, origins, names);
         }
         else if (browser === 'edge') {
