@@ -44,9 +44,11 @@ export async function getCookiesFromSafari(options, origins, allowlistNames) {
 }
 function resolveSafariBinaryCookiesPath() {
     const home = homedir();
+    // Sandboxed container (macOS 10.14+) is checked first as it contains
+    // current cookies. The legacy path may exist but contain stale data.
     const candidates = [
-        path.join(home, 'Library', 'Cookies', 'Cookies.binarycookies'),
         path.join(home, 'Library', 'Containers', 'com.apple.Safari', 'Data', 'Library', 'Cookies', 'Cookies.binarycookies'),
+        path.join(home, 'Library', 'Cookies', 'Cookies.binarycookies'),
     ];
     for (const candidate of candidates) {
         if (existsSync(candidate))
