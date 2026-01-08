@@ -2,6 +2,7 @@
  * Supported browser backends.
  *
  * Notes:
+ * - `arc` is supported on macOS and Windows (Arc browser).
  * - `safari` is macOS-only.
  * - `chrome` targets Google Chrome paths by default.
  * - `edge` targets Microsoft Edge paths by default.
@@ -9,7 +10,7 @@
  *   (or `edgeProfile` if you want to keep sources separate).
  * - Only modern Chromium cookie DB schemas are supported (roughly Chrome >= 100).
  */
-export type BrowserName = 'chrome' | 'edge' | 'firefox' | 'safari';
+export type BrowserName = 'arc' | 'chrome' | 'edge' | 'firefox' | 'safari';
 export type CookieSameSite = 'Strict' | 'Lax' | 'None';
 export interface Cookie {
     /** Cookie name (required). */
@@ -79,6 +80,15 @@ export interface GetCookiesOptions {
      * - a path to a cookie DB file (`.../Network/Cookies` or `.../Cookies`)
      */
     edgeProfile?: string;
+    /**
+     * Arc browser profile selector.
+     *
+     * Accepted values:
+     * - profile directory name like `Default` / `Profile 2`
+     * - a path to a profile directory
+     * - a path to a cookie DB file (`.../Network/Cookies` or `.../Cookies`)
+     */
+    arcProfile?: string;
     /**
      * Firefox profile selector (profile name or filesystem path).
      * If a directory is provided, `cookies.sqlite` is resolved within it.

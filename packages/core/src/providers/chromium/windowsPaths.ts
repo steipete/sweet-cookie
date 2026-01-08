@@ -4,12 +4,18 @@ import path from 'node:path';
 import { expandPath, looksLikePath } from './paths.js';
 
 export function resolveChromiumPathsWindows(options: {
-	localAppDataVendorPath: string;
+	localAppDataVendorPath?: string;
+	localAppDataVendorPaths?: string[];
 	profile?: string;
 }): { dbPath: string | null; userDataDir: string | null } {
 	// biome-ignore lint/complexity/useLiteralKeys: process.env is an index signature under strict TS.
 	const localAppData = process.env['LOCALAPPDATA'];
-	const root = localAppData ? path.join(localAppData, options.localAppDataVendorPath) : null;
+	const vendorPaths =
+		options.localAppDataVendorPaths && options.localAppDataVendorPaths.length > 0
+			? options.localAppDataVendorPaths
+			: options.localAppDataVendorPath
+				? [options.localAppDataVendorPath]
+				: [];
 
 	if (options.profile && looksLikePath(options.profile)) {
 		const expanded = expandPath(options.profile);
@@ -32,15 +38,18 @@ export function resolveChromiumPathsWindows(options: {
 
 	const profileDir =
 		options.profile && options.profile.trim().length > 0 ? options.profile.trim() : 'Default';
-	if (!root) return { dbPath: null, userDataDir: null };
-	const candidates = [
-		path.join(root, profileDir, 'Network', 'Cookies'),
-		path.join(root, profileDir, 'Cookies'),
-	];
-	for (const candidate of candidates) {
-		if (existsSync(candidate)) return { dbPath: candidate, userDataDir: root };
+	if (!localAppData || vendorPaths.length === 0) return { dbPath: null, userDataDir: null };
+	for (const vendorPath of vendorPaths) {
+		const root = path.join(localAppData, vendorPath);
+		const candidates = [
+			path.join(root, profileDir, 'Network', 'Cookies'),
+			path.join(root, profileDir, 'Cookies'),
+		];
+		for (const candidate of candidates) {
+			if (existsSync(candidate)) return { dbPath: candidate, userDataDir: root };
+		}
 	}
-	return { dbPath: null, userDataDir: root };
+	return { dbPath: null, userDataDir: null };
 }
 
 function findUserDataDir(cookiesDbPath: string): string | null {

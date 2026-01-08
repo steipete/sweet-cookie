@@ -1,3 +1,4 @@
+import { getCookiesFromArc } from './providers/arc.js';
 import { getCookiesFromChrome } from './providers/chrome.js';
 import { getCookiesFromEdge } from './providers/edge.js';
 import { getCookiesFromFirefox } from './providers/firefoxSqlite.js';
@@ -18,6 +19,7 @@ const DEFAULT_BROWSERS: BrowserName[] = ['chrome', 'safari', 'firefox'];
  * Read cookies for a URL from one or more browser backends (and/or inline payloads).
  *
  * Supported backends:
+ * - `arc`: macOS / Windows (Chromium-based; targets Arc browser paths)
  * - `chrome`: macOS / Windows / Linux (Chromium-based; default discovery targets Google Chrome paths)
  * - `edge`: macOS / Windows / Linux (Chromium-based; default discovery targets Microsoft Edge paths)
  * - `firefox`: macOS / Windows / Linux
@@ -99,6 +101,16 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 				firefoxOptions.includeExpired = options.includeExpired;
 
 			result = await getCookiesFromFirefox(firefoxOptions, origins, names);
+		} else if (browser === 'arc') {
+			const arcOptions: Parameters<typeof getCookiesFromArc>[0] = {};
+			const arcProfile =
+				options.arcProfile ?? options.profile ?? readEnv('SWEET_COOKIE_ARC_PROFILE');
+			if (arcProfile) arcOptions.profile = arcProfile;
+			if (options.timeoutMs !== undefined) arcOptions.timeoutMs = options.timeoutMs;
+			if (options.includeExpired !== undefined) arcOptions.includeExpired = options.includeExpired;
+			if (options.debug !== undefined) arcOptions.debug = options.debug;
+
+			result = await getCookiesFromArc(arcOptions, origins, names);
 		} else {
 			const safariOptions: Parameters<typeof getCookiesFromSafari>[0] = {};
 			if (options.includeExpired !== undefined)
@@ -190,9 +202,15 @@ function parseBrowsersEnv(): GetCookiesOptions['browsers'] | undefined {
 		.split(/[,\s]+/)
 		.map((t) => t.trim().toLowerCase())
 		.filter(Boolean);
-	const out: Array<'chrome' | 'edge' | 'firefox' | 'safari'> = [];
+	const out: Array<'arc' | 'chrome' | 'edge' | 'firefox' | 'safari'> = [];
 	for (const token of tokens) {
-		if (token === 'chrome' || token === 'edge' || token === 'firefox' || token === 'safari') {
+		if (
+			token === 'arc' ||
+			token === 'chrome' ||
+			token === 'edge' ||
+			token === 'firefox' ||
+			token === 'safari'
+		) {
 			if (!out.includes(token)) out.push(token);
 		}
 	}

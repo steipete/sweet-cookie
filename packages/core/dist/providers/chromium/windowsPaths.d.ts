@@ -1,5 +1,6 @@
 export declare function resolveChromiumPathsWindows(options: {
-    localAppDataVendorPath: string;
+    localAppDataVendorPath?: string;
+    localAppDataVendorPaths?: string[];
     profile?: string;
 }): {
     dbPath: string | null;

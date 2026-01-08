@@ -3,6 +3,7 @@ import type { Cookie, CookieHeaderOptions, GetCookiesOptions, GetCookiesResult }
  * Read cookies for a URL from one or more browser backends (and/or inline payloads).
  *
  * Supported backends:
+ * - `arc`: macOS / Windows (Chromium-based; targets Arc browser paths)
  * - `chrome`: macOS / Windows / Linux (Chromium-based; default discovery targets Google Chrome paths)
  * - `edge`: macOS / Windows / Linux (Chromium-based; default discovery targets Microsoft Edge paths)
  * - `firefox`: macOS / Windows / Linux
