@@ -6,12 +6,12 @@ import { getWindowsChromiumMasterKey } from './chromium/windowsMasterKey.js';
 import { resolveChromiumPathsWindows } from './chromium/windowsPaths.js';
 export async function getCookiesFromArcSqliteWindows(options, origins, allowlistNames) {
     const storeVendorPath = findArcWindowsStoreVendorPath();
+    if (!storeVendorPath) {
+        return { cookies: [], warnings: ['Arc cookies database not found.'] };
+    }
     const resolveArgs = {
         // Arc on Windows stores data in %LOCALAPPDATA%\Packages\TheBrowserCompany.Arc_*\LocalCache\Local\Arc\User Data
-        // However, the non-Store version uses %LOCALAPPDATA%\Arc\User Data
-        localAppDataVendorPaths: storeVendorPath
-            ? [storeVendorPath, path.join('Arc', 'User Data')]
-            : [path.join('Arc', 'User Data')],
+        localAppDataVendorPath: storeVendorPath,
     };
     if (options.profile !== undefined)
         resolveArgs.profile = options.profile;
