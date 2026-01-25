@@ -230,8 +230,14 @@ async function readChromeRows(
 	const sqliteKind = isBunRuntime() ? 'bun' : 'node';
 	const sqliteLabel = sqliteKind === 'bun' ? 'bun:sqlite' : 'node:sqlite';
 
+	// Cast large integer columns to TEXT for Node.js versions without readBigInts support.
+	// Chrome stores cookie timestamps as microseconds since Windows epoch (1601-01-01),
+	// which can exceed Number.MAX_SAFE_INTEGER and cause node:sqlite to throw.
+	const needsCast = sqliteKind === 'node' && !supportsReadBigInts();
+	const expiresCol = needsCast ? 'CAST(expires_utc AS TEXT) AS expires_utc' : 'expires_utc';
+
 	const sql =
-		`SELECT name, value, host_key, path, expires_utc, samesite, encrypted_value, ` +
+		`SELECT name, value, host_key, path, ${expiresCol}, samesite, encrypted_value, ` +
 		`is_secure AS is_secure, is_httponly AS is_httponly ` +
 		`FROM cookies WHERE (${where}) ORDER BY expires_utc DESC;`;
 
