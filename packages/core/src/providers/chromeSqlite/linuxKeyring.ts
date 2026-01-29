@@ -38,12 +38,14 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 	if (backend === 'gnome') {
 		// GNOME keyring: `secret-tool` is the simplest way to read libsecret entries.
 		//
-		// Chrome has used multiple libsecret schemas/attribute sets across versions/distros.
-		// Common patterns:
-		//  - service/account: service="Chrome Safe Storage", account="Chrome"
-		//  - application: application="chrome" (schema chrome_libsecret_os_crypt_password_v2)
+		// Chromium-based browsers (e.g. Chrome, Edge) have used multiple libsecret
+		// schemas/attribute sets across versions/distros. Common patterns:
+		//  - service/account: service="<Browser> Safe Storage", account="<Browser>"
+		//  - application: application="chrome" or application="msedge"
+		//    (e.g. schema chrome_libsecret_os_crypt_password_v2)
 		//
-		// Try the classic service/account lookup first, then fall back to application.
+		// Try the classic service/account lookup first, then fall back to application
+		// (which will use either "chrome" or "msedge" depending on options.app).
 		let res = await execCapture(
 			'secret-tool',
 			['lookup', 'service', service, 'account', account],
