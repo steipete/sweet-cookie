@@ -7,9 +7,9 @@ export function supportsReadBigInts(): boolean {
 	const major = Number.parseInt(majorRaw ?? '', 10);
 	const minor = Number.parseInt(minorRaw ?? '', 10);
 	if (!Number.isFinite(major) || !Number.isFinite(minor)) return false;
-	if (major > 24) return true;
-	if (major < 24) return false;
-	return minor >= 4;
+	// node:sqlite supports readBigInts from Node 22+
+	if (major >= 22) return true;
+	return false;
 }
 
 function shouldSuppressSqliteExperimentalWarning(warning: unknown, args: unknown[]): boolean {
