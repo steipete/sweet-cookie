@@ -37,12 +37,25 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 
 	if (backend === 'gnome') {
 		// GNOME keyring: `secret-tool` is the simplest way to read libsecret entries.
+		// Try the standard Chromium schema first (service + account attributes).
 		const res = await execCapture(
 			'secret-tool',
 			['lookup', 'service', service, 'account', account],
 			{ timeoutMs: 3_000 }
 		);
-		if (res.code === 0) return { password: res.stdout.trim(), warnings };
+		if (res.code === 0 && res.stdout.trim()) return { password: res.stdout.trim(), warnings };
+
+		// Newer Chromium versions (>= ~v128) may store the password under the
+		// `chrome_libsecret_os_crypt_password_v2` schema with `application` as the
+		// lookup attribute instead of `service`/`account` (#12).
+		const appName = options.app === 'edge' ? 'edge' : 'chrome';
+		const v2Res = await execCapture(
+			'secret-tool',
+			['lookup', 'application', appName],
+			{ timeoutMs: 3_000 }
+		);
+		if (v2Res.code === 0 && v2Res.stdout.trim()) return { password: v2Res.stdout.trim(), warnings };
+
 		warnings.push('Failed to read Linux keyring via secret-tool; v11 cookies may be unavailable.');
 		return { password: '', warnings };
 	}
