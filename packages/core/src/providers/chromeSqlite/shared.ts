@@ -230,8 +230,17 @@ async function readChromeRows(
 	const sqliteKind = isBunRuntime() ? 'bun' : 'node';
 	const sqliteLabel = sqliteKind === 'bun' ? 'bun:sqlite' : 'node:sqlite';
 
+	// When readBigInts is not supported (Node < 24.4), integer columns that exceed
+	// Number.MAX_SAFE_INTEGER cause "Value is too large to be represented as a JavaScript number".
+	// Chrome's expires_utc stores WebKit microseconds since 1601-01-01, which on 64-bit systems
+	// can exceed 2^53. Cast these columns to text so they're always safe to read; tryParseInt and
+	// normalizeExpiration already handle string values.
+	const castBigInts = sqliteKind === 'node' && !supportsReadBigInts();
+	const expiresCol = castBigInts ? 'CAST(expires_utc AS TEXT) AS expires_utc' : 'expires_utc';
+	const sameSiteCol = castBigInts ? 'CAST(samesite AS TEXT) AS samesite' : 'samesite';
+
 	const sql =
-		`SELECT name, value, host_key, path, expires_utc, samesite, encrypted_value, ` +
+		`SELECT name, value, host_key, path, ${expiresCol}, ${sameSiteCol}, encrypted_value, ` +
 		`is_secure AS is_secure, is_httponly AS is_httponly ` +
 		`FROM cookies WHERE (${where}) ORDER BY expires_utc DESC;`;
 
