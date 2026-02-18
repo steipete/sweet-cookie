@@ -15,7 +15,7 @@ export async function getCookiesFromChromeSqliteMac(options, origins, allowlistN
     const passwordResult = await readKeychainGenericPasswordFirst({
         account: 'Chrome',
         services: ['Chrome Safe Storage'],
-        timeoutMs: 3_000,
+        timeoutMs: options.timeoutMs ?? 3_000,
         label: 'Chrome Safe Storage',
     });
     if (!passwordResult.ok) {

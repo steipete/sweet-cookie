@@ -11,7 +11,7 @@ import { readKeychainGenericPasswordFirst } from './chromium/macosKeychain.js';
 import { resolveCookiesDbFromProfileOrRoots } from './chromium/paths.js';
 
 export async function getCookiesFromChromeSqliteMac(
-	options: { profile?: string; includeExpired?: boolean; debug?: boolean },
+	options: { profile?: string; includeExpired?: boolean; debug?: boolean; timeoutMs?: number },
 	origins: string[],
 	allowlistNames: Set<string> | null
 ): Promise<GetCookiesResult> {
@@ -26,7 +26,7 @@ export async function getCookiesFromChromeSqliteMac(
 	const passwordResult = await readKeychainGenericPasswordFirst({
 		account: 'Chrome',
 		services: ['Chrome Safe Storage'],
-		timeoutMs: 3_000,
+		timeoutMs: options.timeoutMs ?? 3_000,
 		label: 'Chrome Safe Storage',
 	});
 	if (!passwordResult.ok) {
