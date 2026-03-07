@@ -230,10 +230,17 @@ async function readChromeRows(
 	const sqliteKind = isBunRuntime() ? 'bun' : 'node';
 	const sqliteLabel = sqliteKind === 'bun' ? 'bun:sqlite' : 'node:sqlite';
 
+	// Node < 24.4 can't read big int columns from node:sqlite without throwing.
+	const needsTextExpires = sqliteKind === 'node' && !supportsReadBigInts();
+	const expiresColumn = needsTextExpires
+		? 'CAST(expires_utc AS TEXT) AS expires_utc'
+		: 'expires_utc';
+	const expiresOrder = needsTextExpires ? 'cookies.expires_utc' : 'expires_utc';
+
 	const sql =
-		`SELECT name, value, host_key, path, expires_utc, samesite, encrypted_value, ` +
+		`SELECT name, value, host_key, path, ${expiresColumn}, samesite, encrypted_value, ` +
 		`is_secure AS is_secure, is_httponly AS is_httponly ` +
-		`FROM cookies WHERE (${where}) ORDER BY expires_utc DESC;`;
+		`FROM cookies WHERE (${where}) ORDER BY ${expiresOrder} DESC;`;
 
 	const result = await queryNodeOrBun({ kind: sqliteKind, dbPath, sql });
 	if (result.ok) return { ok: true, rows: result.rows as ChromeRow[] };
