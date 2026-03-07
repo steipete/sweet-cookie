@@ -86,6 +86,35 @@ describe('firefox sqlite provider', () => {
 		expect(res.cookies[0]?.sameSite).toBe('Strict');
 	});
 
+	it('drops impossible far-future Firefox expiry values', async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-firefox-'));
+		const dbDir = path.join(dir, 'profile');
+
+		mkdirSync(dbDir, { recursive: true });
+		writeFileSync(path.join(dbDir, 'cookies.sqlite'), '', 'utf8');
+		nodeSqlite.rows = [
+			{
+				name: 'sid',
+				value: 'value',
+				host: '.chatgpt.com',
+				path: '/',
+				expiry: '253402300800',
+				isSecure: 1,
+				isHttpOnly: 1,
+				sameSite: 2,
+			},
+		];
+
+		const res = await getCookiesFromFirefox(
+			{ profile: dbDir, includeExpired: true },
+			['https://chatgpt.com/'],
+			null
+		);
+
+		expect(res.cookies).toHaveLength(1);
+		expect(res.cookies[0]?.expires).toBeUndefined();
+	});
+
 	it('accepts a direct cookies.sqlite path', async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-firefox-'));
 		const dbDir = path.join(dir, 'profile');

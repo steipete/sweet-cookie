@@ -259,6 +259,9 @@ function normalizeFirefoxExpiry(expiry?: string): number | undefined {
 	if (!expiry) return undefined;
 	const value = Number.parseInt(expiry, 10);
 	if (!Number.isFinite(value) || value <= 0) return undefined;
+	// Downstream consumers commonly marshal cookie expiries into conventional time types
+	// that cap out at year 9999 (253402300799 Unix seconds).
+	if (value > 253_402_300_799) return undefined;
 	return value;
 }
 
