@@ -1,5 +1,5 @@
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from './chromeSqlite/crypto.js';
-import { getLinuxChromeSafeStoragePassword } from './chromeSqlite/linuxKeyring.js';
+import { getLinuxBraveSafeStoragePassword, getLinuxChromeSafeStoragePassword, } from './chromeSqlite/linuxKeyring.js';
 import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
 import { resolveChromiumCookiesDbLinux } from './chromium/linuxPaths.js';
 export async function getCookiesFromChromeSqliteLinux(options, origins, allowlistNames) {
@@ -12,7 +12,12 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
     if (!dbPath) {
         return { cookies: [], warnings: ['Chrome cookies database not found.'] };
     }
-    const { password, warnings: keyringWarnings } = await getLinuxChromeSafeStoragePassword();
+    const isBrave = dbPath.toLowerCase().includes('bravesoftware') ||
+        dbPath.toLowerCase().includes('brave-browser') ||
+        dbPath.toLowerCase().includes('brave browser');
+    const { password, warnings: keyringWarnings } = isBrave
+        ? await getLinuxBraveSafeStoragePassword()
+        : await getLinuxChromeSafeStoragePassword();
     // Linux uses multiple schemes depending on distro/keyring availability.
     // - v10 often uses the hard-coded "peanuts" password
     // - v11 uses "Chrome Safe Storage" from the keyring (may be empty/unavailable)

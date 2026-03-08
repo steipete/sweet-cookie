@@ -15,7 +15,9 @@ export async function getLinuxChromiumSafeStoragePassword(options) {
     // they can bypass keyring probing entirely.
     const overrideKey = options.app === 'edge'
         ? 'SWEET_COOKIE_EDGE_SAFE_STORAGE_PASSWORD'
-        : 'SWEET_COOKIE_CHROME_SAFE_STORAGE_PASSWORD';
+        : options.app === 'brave'
+            ? 'SWEET_COOKIE_BRAVE_SAFE_STORAGE_PASSWORD'
+            : 'SWEET_COOKIE_CHROME_SAFE_STORAGE_PASSWORD';
     const override = readEnv(overrideKey);
     if (override !== undefined)
         return { password: override, warnings };
@@ -23,28 +25,32 @@ export async function getLinuxChromiumSafeStoragePassword(options) {
     // `basic` means "don't try keyrings" (Chrome will fall back to older/less-secure schemes on some setups).
     if (backend === 'basic')
         return { password: '', warnings };
-    const service = options.app === 'edge' ? 'Microsoft Edge Safe Storage' : 'Chrome Safe Storage';
-    const account = options.app === 'edge' ? 'Microsoft Edge' : 'Chrome';
+    const service = options.app === 'edge'
+        ? 'Microsoft Edge Safe Storage'
+        : options.app === 'brave'
+            ? 'Brave Safe Storage'
+            : 'Chrome Safe Storage';
+    const account = options.app === 'edge' ? 'Microsoft Edge' : options.app === 'brave' ? 'Brave' : 'Chrome';
     const folder = `${account} Keys`;
+    const application = options.app === 'edge' ? 'msedge' : options.app === 'brave' ? 'brave' : 'chrome';
     if (backend === 'gnome') {
         // GNOME keyring: `secret-tool` is the simplest way to read libsecret entries.
         //
-        // Chromium-based browsers (e.g. Chrome, Edge) have used multiple libsecret
+        // Chromium-based browsers (e.g. Chrome, Edge, Brave) have used multiple libsecret
         // schemas/attribute sets across versions/distros. Common patterns:
         //  - service/account: service="<Browser> Safe Storage", account="<Browser>"
-        //  - application: application="chrome" or application="msedge"
+        //  - application: application="chrome", "msedge", or "brave"
         //    (e.g. schema chrome_libsecret_os_crypt_password_v2)
         //
         // Try the classic service/account lookup first, then fall back to application
-        // (which will use either "chrome" or "msedge" depending on options.app).
+        // (which varies by options.app).
         let res = await execCapture('secret-tool', ['lookup', 'service', service, 'account', account], {
             timeoutMs: 3_000,
         });
         if (res.code === 0 && res.stdout.trim())
             return { password: res.stdout.trim(), warnings };
         // Fallback: try application-based lookup (chrome_libsecret_os_crypt_password_v2 schema)
-        const appName = options.app === 'edge' ? 'msedge' : 'chrome';
-        res = await execCapture('secret-tool', ['lookup', 'application', appName], {
+        res = await execCapture('secret-tool', ['lookup', 'application', application], {
             timeoutMs: 3_000,
         });
         if (res.code === 0 && res.stdout.trim())
@@ -76,6 +82,12 @@ export async function getLinuxChromiumSafeStoragePassword(options) {
 }
 export async function getLinuxChromeSafeStoragePassword(options = {}) {
     const args = { app: 'chrome' };
+    if (options.backend !== undefined)
+        args.backend = options.backend;
+    return await getLinuxChromiumSafeStoragePassword(args);
+}
+export async function getLinuxBraveSafeStoragePassword(options = {}) {
+    const args = { app: 'brave' };
     if (options.backend !== undefined)
         args.backend = options.backend;
     return await getLinuxChromiumSafeStoragePassword(args);

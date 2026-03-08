@@ -108,6 +108,25 @@ describe('linux keyring', () => {
 		expect(result.warnings).toEqual([]);
 	});
 
+	it('falls back to application lookup when service/account returns empty (Brave)', async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
+		const binDir = path.join(dir, 'bin');
+
+		writeSecretToolShim(binDir, {
+			serviceAccountPassword: '',
+			applicationPassword: 'brave-fallback-password\n',
+		});
+		prependToPath(binDir);
+
+		const result = await getLinuxChromiumSafeStoragePassword({
+			backend: 'gnome',
+			app: 'brave',
+		});
+
+		expect(result.password).toBe('brave-fallback-password');
+		expect(result.warnings).toEqual([]);
+	});
+
 	it('returns warning when both lookups fail', async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
 		const binDir = path.join(dir, 'bin');
@@ -139,6 +158,18 @@ describe('linux keyring', () => {
 		});
 
 		expect(result.password).toBe('override-password');
+		expect(result.warnings).toEqual([]);
+	});
+
+	it('uses Brave env override when set', async () => {
+		vi.stubEnv('SWEET_COOKIE_BRAVE_SAFE_STORAGE_PASSWORD', 'brave-override-password');
+
+		const result = await getLinuxChromiumSafeStoragePassword({
+			backend: 'gnome',
+			app: 'brave',
+		});
+
+		expect(result.password).toBe('brave-override-password');
 		expect(result.warnings).toEqual([]);
 	});
 
