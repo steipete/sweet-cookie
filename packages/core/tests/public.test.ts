@@ -14,6 +14,8 @@ function buildInlinePayload(): string {
 
 // biome-ignore lint/suspicious/noExplicitAny: test-only capture
 const edgeCapture = vi.hoisted(() => ({ lastOptions: null as any }));
+// biome-ignore lint/suspicious/noExplicitAny: test-only capture
+const chromeCapture = vi.hoisted(() => ({ lastOptions: null as any }));
 
 // biome-ignore lint/suspicious/noExplicitAny: test-only control surface
 const nodeSqlite = vi.hoisted(() => ({ rows: [] as any[], shouldThrow: false }));
@@ -42,6 +44,7 @@ describe('public API', () => {
 		nodeSqlite.rows = [];
 		nodeSqlite.shouldThrow = false;
 		edgeCapture.lastOptions = null;
+		chromeCapture.lastOptions = null;
 	});
 
 	it('returns inline cookies first (and filters by name)', async () => {
@@ -154,6 +157,31 @@ describe('public API', () => {
 
 		expect(res.cookies.map((c) => c.name)).toEqual(['edge']);
 		expect(edgeCapture.lastOptions).toMatchObject({ profile: 'Default' });
+	});
+
+	it('passes chromiumBrowser through to the chrome provider', async () => {
+		vi.resetModules();
+
+		vi.doMock('../src/providers/chrome.js', () => ({
+			getCookiesFromChrome: async (options: unknown) => {
+				chromeCapture.lastOptions = options;
+				return {
+					cookies: [{ name: 'chrome', value: 'c', domain: 'chatgpt.com', path: '/', secure: true }],
+					warnings: [],
+				};
+			},
+		}));
+
+		const { getCookies } = await import('../src/index.js');
+		const res = await getCookies({
+			url: 'https://chatgpt.com/',
+			browsers: ['chrome'],
+			chromiumBrowser: 'arc',
+			includeExpired: true,
+		});
+
+		expect(res.cookies.map((c) => c.name)).toEqual(['chrome']);
+		expect(chromeCapture.lastOptions).toMatchObject({ chromiumBrowser: 'arc' });
 	});
 
 	itIfDarwin('merges browser sources and dedupes by name+domain+path', async () => {

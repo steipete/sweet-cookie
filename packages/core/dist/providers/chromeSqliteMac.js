@@ -4,8 +4,47 @@ import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } 
 import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
 import { readKeychainGenericPasswordFirst } from './chromium/macosKeychain.js';
 import { resolveCookiesDbFromProfileOrRoots } from './chromium/paths.js';
+const DEFAULT_CHROMIUM_KEYCHAIN = {
+    account: 'Chrome',
+    services: ['Chrome Safe Storage'],
+    label: 'Chrome Safe Storage',
+};
+const CHROMIUM_BROWSER_TARGETS = [
+    {
+        id: 'chrome',
+        root: 'Google/Chrome',
+        keychain: DEFAULT_CHROMIUM_KEYCHAIN,
+    },
+    {
+        id: 'brave',
+        root: 'BraveSoftware/Brave-Browser',
+        keychain: {
+            account: 'Brave',
+            services: ['Brave Safe Storage'],
+            label: 'Brave Safe Storage',
+        },
+    },
+    {
+        id: 'arc',
+        root: 'Arc/User Data',
+        keychain: {
+            account: 'Arc',
+            services: ['Arc Safe Storage'],
+            label: 'Arc Safe Storage',
+        },
+    },
+    {
+        id: 'chromium',
+        root: 'Chromium',
+        keychain: {
+            account: 'Chromium',
+            services: ['Chromium Safe Storage'],
+            label: 'Chromium Safe Storage',
+        },
+    },
+];
 export async function getCookiesFromChromeSqliteMac(options, origins, allowlistNames) {
-    const dbPath = resolveChromeCookiesDb(options.profile);
+    const dbPath = resolveChromeCookiesDb(options.profile, options.chromiumBrowser);
     if (!dbPath) {
         return { cookies: [], warnings: ['Chrome cookies database not found.'] };
     }
@@ -49,29 +88,21 @@ export async function getCookiesFromChromeSqliteMac(options, origins, allowlistN
 }
 function resolveKeychainForDb(dbPath) {
     const lower = dbPath.toLowerCase();
-    if (lower.includes('bravesoftware') ||
-        lower.includes('brave-browser') ||
-        lower.includes('brave browser')) {
-        return {
-            account: 'Brave',
-            services: ['Brave Safe Storage'],
-            label: 'Brave Safe Storage',
-        };
+    for (const target of CHROMIUM_BROWSER_TARGETS) {
+        if (lower.includes(target.root.toLowerCase())) {
+            return target.keychain;
+        }
     }
-    return {
-        account: 'Chrome',
-        services: ['Chrome Safe Storage'],
-        label: 'Chrome Safe Storage',
-    };
+    return DEFAULT_CHROMIUM_KEYCHAIN;
 }
-function resolveChromeCookiesDb(profile) {
+function resolveChromeCookiesDb(profile, chromiumBrowser) {
     const home = homedir();
+    const selectedTargets = chromiumBrowser
+        ? CHROMIUM_BROWSER_TARGETS.filter((target) => target.id === chromiumBrowser)
+        : CHROMIUM_BROWSER_TARGETS.filter((target) => target.id === 'chrome' || target.id === 'brave');
     /* c8 ignore next */
     const roots = process.platform === 'darwin'
-        ? [
-            path.join(home, 'Library', 'Application Support', 'Google', 'Chrome'),
-            path.join(home, 'Library', 'Application Support', 'BraveSoftware', 'Brave-Browser'),
-        ]
+        ? selectedTargets.map((target) => path.join(home, 'Library', 'Application Support', ...target.root.split('/')))
         : [];
     const args = { roots };
     if (profile !== undefined)

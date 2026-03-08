@@ -117,4 +117,53 @@ describe('chrome sqlite (mac) keychain selection', () => {
 		);
 		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
 	});
+
+	it('searches only the targeted Chromium root when chromiumBrowser is set', async () => {
+		vi.resetModules();
+
+		const readKeychainGenericPasswordFirst = vi
+			.fn()
+			.mockResolvedValue({ ok: true, password: 'pw' });
+		const getCookiesFromChromeSqliteDb = vi.fn().mockResolvedValue({ cookies: [], warnings: [] });
+		const resolveCookiesDbFromProfileOrRoots = vi
+			.fn()
+			.mockReturnValue('/Users/test/Library/Application Support/Arc/User Data/Default/Cookies');
+
+		vi.doMock('../src/providers/chromium/macosKeychain.js', () => ({
+			readKeychainGenericPasswordFirst,
+		}));
+		vi.doMock('../src/providers/chromium/paths.js', () => ({
+			resolveCookiesDbFromProfileOrRoots,
+		}));
+		vi.doMock('../src/providers/chromeSqlite/shared.js', () => ({
+			getCookiesFromChromeSqliteDb,
+		}));
+		vi.doMock('../src/providers/chromeSqlite/crypto.js', () => ({
+			decryptChromiumAes128CbcCookieValue: vi.fn(),
+			deriveAes128CbcKeyFromPassword: () => new Uint8Array(),
+		}));
+
+		const { getCookiesFromChromeSqliteMac } = await import('../src/providers/chromeSqliteMac.js');
+
+		await getCookiesFromChromeSqliteMac(
+			{ profile: 'Default', chromiumBrowser: 'arc' },
+			['https://example.com'],
+			null
+		);
+
+		expect(resolveCookiesDbFromProfileOrRoots).toHaveBeenCalledWith(
+			expect.objectContaining({
+				profile: 'Default',
+				roots: [expect.stringContaining('/Library/Application Support/Arc/User Data')],
+			})
+		);
+		expect(readKeychainGenericPasswordFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				account: 'Arc',
+				services: ['Arc Safe Storage'],
+				label: 'Arc Safe Storage',
+			})
+		);
+		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
+	});
 });

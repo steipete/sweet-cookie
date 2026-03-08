@@ -86,6 +86,12 @@ export interface GetCookiesOptions {
     firefoxProfile?: string;
     /** Override path to Safari Cookies.binarycookies (for tests / debugging). */
     safariCookiesFile?: string;
+    /**
+     * Specific Chromium browser to target on macOS.
+     * When set, only that browser's keychain entry will be tried (avoids multiple password prompts).
+     * Only used when `browsers` includes 'chrome'.
+     */
+    chromiumBrowser?: 'chrome' | 'brave' | 'arc' | 'chromium';
     /** Include expired cookies (default: false). */
     includeExpired?: boolean;
     /** Timeout for OS helper calls (keychain/keyring/DPAPI). */

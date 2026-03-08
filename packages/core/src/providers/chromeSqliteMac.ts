@@ -10,12 +10,61 @@ import { getCookiesFromChromeSqliteDb } from './chromeSqlite/shared.js';
 import { readKeychainGenericPasswordFirst } from './chromium/macosKeychain.js';
 import { resolveCookiesDbFromProfileOrRoots } from './chromium/paths.js';
 
+const DEFAULT_CHROMIUM_KEYCHAIN = {
+	account: 'Chrome',
+	services: ['Chrome Safe Storage'],
+	label: 'Chrome Safe Storage',
+};
+
+const CHROMIUM_BROWSER_TARGETS = [
+	{
+		id: 'chrome' as const,
+		root: 'Google/Chrome',
+		keychain: DEFAULT_CHROMIUM_KEYCHAIN,
+	},
+	{
+		id: 'brave' as const,
+		root: 'BraveSoftware/Brave-Browser',
+		keychain: {
+			account: 'Brave',
+			services: ['Brave Safe Storage'],
+			label: 'Brave Safe Storage',
+		},
+	},
+	{
+		id: 'arc' as const,
+		root: 'Arc/User Data',
+		keychain: {
+			account: 'Arc',
+			services: ['Arc Safe Storage'],
+			label: 'Arc Safe Storage',
+		},
+	},
+	{
+		id: 'chromium' as const,
+		root: 'Chromium',
+		keychain: {
+			account: 'Chromium',
+			services: ['Chromium Safe Storage'],
+			label: 'Chromium Safe Storage',
+		},
+	},
+];
+
+export type ChromiumBrowserId = 'chrome' | 'brave' | 'arc' | 'chromium';
+
 export async function getCookiesFromChromeSqliteMac(
-	options: { profile?: string; includeExpired?: boolean; debug?: boolean; timeoutMs?: number },
+	options: {
+		profile?: string;
+		includeExpired?: boolean;
+		debug?: boolean;
+		timeoutMs?: number;
+		chromiumBrowser?: ChromiumBrowserId;
+	},
 	origins: string[],
 	allowlistNames: Set<string> | null
 ): Promise<GetCookiesResult> {
-	const dbPath = resolveChromeCookiesDb(options.profile);
+	const dbPath = resolveChromeCookiesDb(options.profile, options.chromiumBrowser);
 	if (!dbPath) {
 		return { cookies: [], warnings: ['Chrome cookies database not found.'] };
 	}
@@ -68,33 +117,28 @@ function resolveKeychainForDb(dbPath: string): {
 	label: string;
 } {
 	const lower = dbPath.toLowerCase();
-	if (
-		lower.includes('bravesoftware') ||
-		lower.includes('brave-browser') ||
-		lower.includes('brave browser')
-	) {
-		return {
-			account: 'Brave',
-			services: ['Brave Safe Storage'],
-			label: 'Brave Safe Storage',
-		};
+	for (const target of CHROMIUM_BROWSER_TARGETS) {
+		if (lower.includes(target.root.toLowerCase())) {
+			return target.keychain;
+		}
 	}
-	return {
-		account: 'Chrome',
-		services: ['Chrome Safe Storage'],
-		label: 'Chrome Safe Storage',
-	};
+	return DEFAULT_CHROMIUM_KEYCHAIN;
 }
 
-function resolveChromeCookiesDb(profile?: string): string | null {
+function resolveChromeCookiesDb(
+	profile?: string,
+	chromiumBrowser?: ChromiumBrowserId
+): string | null {
 	const home = homedir();
+	const selectedTargets = chromiumBrowser
+		? CHROMIUM_BROWSER_TARGETS.filter((target) => target.id === chromiumBrowser)
+		: CHROMIUM_BROWSER_TARGETS.filter((target) => target.id === 'chrome' || target.id === 'brave');
 	/* c8 ignore next */
 	const roots =
 		process.platform === 'darwin'
-			? [
-					path.join(home, 'Library', 'Application Support', 'Google', 'Chrome'),
-					path.join(home, 'Library', 'Application Support', 'BraveSoftware', 'Brave-Browser'),
-				]
+			? selectedTargets.map((target) =>
+					path.join(home, 'Library', 'Application Support', ...target.root.split('/'))
+				)
 			: [];
 	const args: Parameters<typeof resolveCookiesDbFromProfileOrRoots>[0] = { roots };
 	if (profile !== undefined) args.profile = profile;
