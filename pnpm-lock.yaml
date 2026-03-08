@@ -20,6 +20,9 @@ importers:
       oxlint:
         specifier: ^1.51.0
         version: 1.51.0(oxlint-tsgolint@0.16.0)
+      oxlint-tsgolint:
+        specifier: ^0.16.0
+        version: 0.16.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1433,7 +1436,6 @@ snapshots:
       '@oxlint-tsgolint/linux-x64': 0.16.0
       '@oxlint-tsgolint/win32-arm64': 0.16.0
       '@oxlint-tsgolint/win32-x64': 0.16.0
-    optional: true
 
   oxlint@1.51.0(oxlint-tsgolint@0.16.0):
     optionalDependencies:
