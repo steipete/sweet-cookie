@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const itIfDarwin = process.platform === 'darwin' ? it : it.skip;
+
 describe('chrome sqlite (mac) keychain selection', () => {
 	it('passes timeoutMs through to the Keychain lookup', async () => {
 		vi.resetModules();
@@ -118,7 +120,7 @@ describe('chrome sqlite (mac) keychain selection', () => {
 		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
 	});
 
-	it('searches only the targeted Chromium root when chromiumBrowser is set', async () => {
+	itIfDarwin('searches only the targeted Chromium root when chromiumBrowser is set', async () => {
 		vi.resetModules();
 
 		const readKeychainGenericPasswordFirst = vi
@@ -167,7 +169,7 @@ describe('chrome sqlite (mac) keychain selection', () => {
 		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
 	});
 
-	it('defaults to Chrome and Brave roots when chromiumBrowser is omitted', async () => {
+	itIfDarwin('defaults to Chrome and Brave roots when chromiumBrowser is omitted', async () => {
 		vi.resetModules();
 
 		const readKeychainGenericPasswordFirst = vi

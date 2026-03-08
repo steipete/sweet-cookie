@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getLinuxChromiumSafeStoragePassword } from '../src/providers/chromeSqlite/linuxKeyring.js';
 
+const itIfLinux = process.platform === 'linux' ? it : it.skip;
+
 function prependToPath(dir: string): void {
 	const parts = [dir, process.env.PATH ?? ''].filter(Boolean);
 	vi.stubEnv('PATH', parts.join(path.delimiter));
@@ -49,7 +51,7 @@ describe('linux keyring', () => {
 		vi.unstubAllEnvs();
 	});
 
-	it('returns password from service/account lookup when available (Chrome)', async () => {
+	itIfLinux('returns password from service/account lookup when available (Chrome)', async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
 		const binDir = path.join(dir, 'bin');
 
@@ -68,66 +70,75 @@ describe('linux keyring', () => {
 		expect(result.warnings).toEqual([]);
 	});
 
-	it('falls back to application lookup when service/account returns empty (Chrome)', async () => {
-		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
-		const binDir = path.join(dir, 'bin');
+	itIfLinux(
+		'falls back to application lookup when service/account returns empty (Chrome)',
+		async () => {
+			const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
+			const binDir = path.join(dir, 'bin');
 
-		// Primary method returns empty, fallback should be used
-		writeSecretToolShim(binDir, {
-			serviceAccountPassword: '', // Empty - simulates chrome_libsecret_os_crypt_password_v2 systems
-			applicationPassword: 'fallback-password\n',
-		});
-		prependToPath(binDir);
+			// Primary method returns empty, fallback should be used
+			writeSecretToolShim(binDir, {
+				serviceAccountPassword: '', // Empty - simulates chrome_libsecret_os_crypt_password_v2 systems
+				applicationPassword: 'fallback-password\n',
+			});
+			prependToPath(binDir);
 
-		const result = await getLinuxChromiumSafeStoragePassword({
-			backend: 'gnome',
-			app: 'chrome',
-		});
+			const result = await getLinuxChromiumSafeStoragePassword({
+				backend: 'gnome',
+				app: 'chrome',
+			});
 
-		expect(result.password).toBe('fallback-password');
-		expect(result.warnings).toEqual([]);
-	});
+			expect(result.password).toBe('fallback-password');
+			expect(result.warnings).toEqual([]);
+		}
+	);
 
-	it('falls back to application lookup when service/account returns empty (Edge)', async () => {
-		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
-		const binDir = path.join(dir, 'bin');
+	itIfLinux(
+		'falls back to application lookup when service/account returns empty (Edge)',
+		async () => {
+			const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
+			const binDir = path.join(dir, 'bin');
 
-		// Primary method returns empty, fallback should be used
-		writeSecretToolShim(binDir, {
-			serviceAccountPassword: '',
-			applicationPassword: 'edge-fallback-password\n',
-		});
-		prependToPath(binDir);
+			// Primary method returns empty, fallback should be used
+			writeSecretToolShim(binDir, {
+				serviceAccountPassword: '',
+				applicationPassword: 'edge-fallback-password\n',
+			});
+			prependToPath(binDir);
 
-		const result = await getLinuxChromiumSafeStoragePassword({
-			backend: 'gnome',
-			app: 'edge',
-		});
+			const result = await getLinuxChromiumSafeStoragePassword({
+				backend: 'gnome',
+				app: 'edge',
+			});
 
-		expect(result.password).toBe('edge-fallback-password');
-		expect(result.warnings).toEqual([]);
-	});
+			expect(result.password).toBe('edge-fallback-password');
+			expect(result.warnings).toEqual([]);
+		}
+	);
 
-	it('falls back to application lookup when service/account returns empty (Brave)', async () => {
-		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
-		const binDir = path.join(dir, 'bin');
+	itIfLinux(
+		'falls back to application lookup when service/account returns empty (Brave)',
+		async () => {
+			const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
+			const binDir = path.join(dir, 'bin');
 
-		writeSecretToolShim(binDir, {
-			serviceAccountPassword: '',
-			applicationPassword: 'brave-fallback-password\n',
-		});
-		prependToPath(binDir);
+			writeSecretToolShim(binDir, {
+				serviceAccountPassword: '',
+				applicationPassword: 'brave-fallback-password\n',
+			});
+			prependToPath(binDir);
 
-		const result = await getLinuxChromiumSafeStoragePassword({
-			backend: 'gnome',
-			app: 'brave',
-		});
+			const result = await getLinuxChromiumSafeStoragePassword({
+				backend: 'gnome',
+				app: 'brave',
+			});
 
-		expect(result.password).toBe('brave-fallback-password');
-		expect(result.warnings).toEqual([]);
-	});
+			expect(result.password).toBe('brave-fallback-password');
+			expect(result.warnings).toEqual([]);
+		}
+	);
 
-	it('returns warning when both lookups fail', async () => {
+	itIfLinux('returns warning when both lookups fail', async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), 'sweet-cookie-keyring-'));
 		const binDir = path.join(dir, 'bin');
 
