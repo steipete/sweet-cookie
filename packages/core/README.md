@@ -25,5 +25,13 @@ for (const w of warnings) console.warn(w);
 const cookieHeader = toCookieHeader(cookies, { dedupeByName: true });
 ```
 
-Docs + extension exporter: see the repo root README.
+macOS-specific Chromium targeting:
+```ts
+await getCookies({
+  url: 'https://example.com/',
+  browsers: ['chrome'],
+  chromiumBrowser: 'brave',
+});
+```
 
+Docs + extension exporter: see the repo root README.

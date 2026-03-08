@@ -166,4 +166,45 @@ describe('chrome sqlite (mac) keychain selection', () => {
 		);
 		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
 	});
+
+	it('defaults to Chrome and Brave roots when chromiumBrowser is omitted', async () => {
+		vi.resetModules();
+
+		const readKeychainGenericPasswordFirst = vi
+			.fn()
+			.mockResolvedValue({ ok: true, password: 'pw' });
+		const getCookiesFromChromeSqliteDb = vi.fn().mockResolvedValue({ cookies: [], warnings: [] });
+		const resolveCookiesDbFromProfileOrRoots = vi
+			.fn()
+			.mockReturnValue('/Users/test/Library/Application Support/Google/Chrome/Default/Cookies');
+
+		vi.doMock('../src/providers/chromium/macosKeychain.js', () => ({
+			readKeychainGenericPasswordFirst,
+		}));
+		vi.doMock('../src/providers/chromium/paths.js', () => ({
+			resolveCookiesDbFromProfileOrRoots,
+		}));
+		vi.doMock('../src/providers/chromeSqlite/shared.js', () => ({
+			getCookiesFromChromeSqliteDb,
+		}));
+		vi.doMock('../src/providers/chromeSqlite/crypto.js', () => ({
+			decryptChromiumAes128CbcCookieValue: vi.fn(),
+			deriveAes128CbcKeyFromPassword: () => new Uint8Array(),
+		}));
+
+		const { getCookiesFromChromeSqliteMac } = await import('../src/providers/chromeSqliteMac.js');
+
+		await getCookiesFromChromeSqliteMac({ profile: 'Default' }, ['https://example.com'], null);
+
+		expect(resolveCookiesDbFromProfileOrRoots).toHaveBeenCalledWith(
+			expect.objectContaining({
+				profile: 'Default',
+				roots: [
+					expect.stringContaining('/Library/Application Support/Google/Chrome'),
+					expect.stringContaining('/Library/Application Support/BraveSoftware/Brave-Browser'),
+				],
+			})
+		);
+		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
+	});
 });
