@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Add explicit macOS `chromiumBrowser` targeting so callers can pick a specific Chromium-family browser without changing default Chrome behavior. (`#2`, thanks `@ainergiz`)
 - Support Brave cookie decryption on Linux and macOS by selecting Brave-specific Safe Storage secrets and profile roots. (`#15`, thanks `@LucasAIBuilder`)
 - Respect `timeoutMs` for macOS Chrome Keychain access so slow or interactive prompts can use the caller-provided timeout. (`#9`, thanks `@natustx`)
 - Fall back to GNOME `application=` keyring lookups for Chrome and Edge when the legacy `service`/`account` lookup is empty. (`#13`, thanks `@Clausinho`)
