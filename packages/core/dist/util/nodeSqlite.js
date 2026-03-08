@@ -1,15 +1,12 @@
 let cached = null;
 export function supportsReadBigInts() {
-    const [majorRaw, minorRaw] = process.versions.node.split('.');
+    const [majorRaw] = process.versions.node.split('.');
     const major = Number.parseInt(majorRaw ?? '', 10);
-    const minor = Number.parseInt(minorRaw ?? '', 10);
-    if (!Number.isFinite(major) || !Number.isFinite(minor))
+    if (!Number.isFinite(major))
         return false;
-    if (major > 24)
-        return true;
-    if (major < 24)
-        return false;
-    return minor >= 4;
+    // `node:sqlite` accepts DatabaseSync({ readBigInts: true }) in the supported Node range
+    // for this package (Node >= 22), even though the API remains experimental in older releases.
+    return major >= 22;
 }
 function shouldSuppressSqliteExperimentalWarning(warning, args) {
     const message = typeof warning === 'string'

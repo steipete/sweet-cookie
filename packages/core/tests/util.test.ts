@@ -9,6 +9,7 @@ import { execCapture } from '../src/util/exec.js';
 import { normalizeExpiration } from '../src/util/expire.js';
 import { readTextFileIfExists } from '../src/util/fs.js';
 import { hostMatchesCookieDomain } from '../src/util/hostMatch.js';
+import { supportsReadBigInts } from '../src/util/nodeSqlite.js';
 import { normalizeOrigins } from '../src/util/origins.js';
 
 describe('util', () => {
@@ -96,5 +97,33 @@ describe('util', () => {
 		const timed = await execCapture(process.execPath, [script], { timeoutMs: 25 });
 		expect(timed.code).toBe(124);
 		expect(timed.stderr).toContain('Timed out');
+	});
+
+	it('supportsReadBigInts() matches the supported Node range', () => {
+		const original = process.versions;
+		try {
+			Object.defineProperty(process, 'versions', {
+				configurable: true,
+				value: { ...original, node: '22.0.0' },
+			});
+			expect(supportsReadBigInts()).toBe(true);
+
+			Object.defineProperty(process, 'versions', {
+				configurable: true,
+				value: { ...original, node: '24.4.0' },
+			});
+			expect(supportsReadBigInts()).toBe(true);
+
+			Object.defineProperty(process, 'versions', {
+				configurable: true,
+				value: { ...original, node: '21.9.0' },
+			});
+			expect(supportsReadBigInts()).toBe(false);
+		} finally {
+			Object.defineProperty(process, 'versions', {
+				configurable: true,
+				value: original,
+			});
+		}
 	});
 });
