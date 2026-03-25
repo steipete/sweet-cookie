@@ -7,6 +7,7 @@ import { normalizeExpiration } from "../../util/expire.js";
 import { hostMatchesCookieDomain } from "../../util/hostMatch.js";
 import { importNodeSqlite, supportsReadBigInts } from "../../util/nodeSqlite.js";
 import { isBunRuntime } from "../../util/runtime.js";
+import { isV20AppBoundEncryption } from "./crypto.js";
 
 type ChromeRow = {
 	name?: unknown;
@@ -95,6 +96,7 @@ function collectChromeCookiesFromRows(
 	const cookies: Cookie[] = [];
 	const now = Math.floor(Date.now() / 1000);
 	let warnedEncryptedType = false;
+	let v20CookieCount = 0;
 
 	for (const row of rows) {
 		const name = typeof row.name === "string" ? row.name : null;
@@ -127,6 +129,10 @@ function collectChromeCookiesFromRows(
 					warnedEncryptedType = true;
 				}
 				continue;
+			}
+			// Track v20 (App-Bound Encryption) cookies for warning
+			if (isV20AppBoundEncryption(encryptedBytes)) {
+				v20CookieCount++;
 			}
 			value = decrypt(encryptedBytes);
 		}
@@ -181,6 +187,15 @@ function collectChromeCookiesFromRows(
 		}
 
 		cookies.push(cookie);
+	}
+
+	// Warn about v20 (App-Bound Encryption) cookies that couldn't be decrypted
+	// This requires SYSTEM-level DPAPI access which is not possible in pure Node.js
+	if (v20CookieCount > 0) {
+		warnings.push(
+			`${v20CookieCount} cookie(s) use Chrome v20 App-Bound Encryption (Chrome 127+) and cannot be decrypted. ` +
+				`See: https://github.com/steipete/sweet-cookie#v20-app-bound-encryption`,
+		);
 	}
 
 	return cookies;

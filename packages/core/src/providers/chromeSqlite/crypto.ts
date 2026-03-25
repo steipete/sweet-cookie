@@ -2,6 +2,21 @@ import { createDecipheriv, pbkdf2Sync } from "node:crypto";
 
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
+/**
+ * Detects if an encrypted value uses Chrome's v20 App-Bound Encryption format.
+ * v20 cookies require SYSTEM-level DPAPI access and cannot be decrypted with
+ * the standard master key approach used for v10/v11 cookies.
+ *
+ * @see https://security.googleblog.com/2024/07/improving-security-of-chrome-cookies-on.html
+ */
+export function isV20AppBoundEncryption(encryptedValue: Uint8Array): boolean {
+	if (encryptedValue.length < 3) {
+		return false;
+	}
+	const prefix = Buffer.from(encryptedValue).subarray(0, 3).toString("utf8");
+	return prefix === "v20";
+}
+
 export function deriveAes128CbcKeyFromPassword(
 	password: string,
 	options: { iterations: number },

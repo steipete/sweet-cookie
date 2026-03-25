@@ -159,6 +159,25 @@ If any inline source yields cookies, Sweet Cookie returns that result immediatel
 Sweet Cookie accepts either a plain `Cookie[]` or `{ cookies: Cookie[] }`.
 The extension export format is documented in `docs/spec.md`.
 
+## Chrome v20 App-Bound Encryption (Chrome 127+)
+
+Chrome 127+ on Windows uses **App-Bound Encryption** for new cookies (prefixed with `v20`). This is a security feature that binds cookie decryption to the Chrome browser process itself.
+
+**Limitation**: Sweet Cookie cannot decrypt `v20` cookies because the decryption key requires SYSTEM-level DPAPI access, which is not possible from pure Node.js without native addons.
+
+When `v20` cookies are detected, Sweet Cookie will:
+1. Return a warning message in the `warnings` array
+2. Skip those cookies (they won't appear in results)
+
+**Workarounds**:
+- Use the [Chrome extension](apps/extension) to export cookies inline
+- Use Chrome DevTools Protocol (CDP) to read cookies from a running browser
+- Use an older Chrome version (< 127) that doesn't use v20 encryption
+
+**References**:
+- [Chrome Security Blog: App-Bound Encryption](https://security.googleblog.com/2024/07/improving-security-of-chrome-cookies-on.html)
+- [GitHub Issue #23](https://github.com/steipete/sweet-cookie/issues/23)
+
 ## Development
 
 ```bash
