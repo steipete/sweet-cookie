@@ -189,8 +189,13 @@ function resolveFirefoxCookiesDb(profile?: string): string | null {
 	const home = homedir();
 	const appData = process.env["APPDATA"];
 	// Per the XDG Base Directory Specification, fall back to ~/.config when
-	// XDG_CONFIG_HOME is unset or empty.
-	const xdgConfigHome = process.env["XDG_CONFIG_HOME"] || path.join(home, ".config");
+	// XDG_CONFIG_HOME is unset, empty, or a non-absolute path (the spec
+	// declares relative values invalid and to be ignored).
+	const xdgConfigHomeRaw = process.env["XDG_CONFIG_HOME"];
+	const xdgConfigHome =
+		xdgConfigHomeRaw && path.isAbsolute(xdgConfigHomeRaw)
+			? xdgConfigHomeRaw
+			: path.join(home, ".config");
 	/* c8 ignore next 14 */
 	const roots =
 		process.platform === "darwin"

@@ -374,6 +374,26 @@ describeIfLinux("firefox sqlite provider (Linux XDG profile roots, issue #26)", 
 		expect(res.cookies).toHaveLength(1);
 	});
 
+	it("ignores a relative XDG_CONFIG_HOME per the XDG spec", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-xdg-"));
+		const homeDir = path.join(dir, "home");
+		// Profile sits at the spec-default ~/.config root; the bogus relative
+		// XDG_CONFIG_HOME below must not redirect lookup to a cwd-relative path.
+		const profileDir = path.join(homeDir, ".config", "mozilla", "firefox", "abc.default-release");
+		mkdirSync(profileDir, { recursive: true });
+		writeFileSync(path.join(profileDir, "cookies.sqlite"), "", "utf8");
+		vi.stubEnv("HOME", homeDir);
+		vi.stubEnv("XDG_CONFIG_HOME", "relative/path");
+
+		const res = await getCookiesFromFirefox(
+			{ includeExpired: true },
+			["https://chatgpt.com/"],
+			null,
+		);
+
+		expect(res.cookies).toHaveLength(1);
+	});
+
 	it("falls back to the legacy ~/.mozilla/firefox path when no XDG profile exists", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-xdg-"));
 		const homeDir = path.join(dir, "home");
