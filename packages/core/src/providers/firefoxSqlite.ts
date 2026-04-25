@@ -188,12 +188,22 @@ function collectFirefoxCookiesFromRows(
 function resolveFirefoxCookiesDb(profile?: string): string | null {
 	const home = homedir();
 	const appData = process.env["APPDATA"];
-	/* c8 ignore next 10 */
+	// Per the XDG Base Directory Specification, fall back to ~/.config when
+	// XDG_CONFIG_HOME is unset or empty.
+	const xdgConfigHome = process.env["XDG_CONFIG_HOME"] || path.join(home, ".config");
+	/* c8 ignore next 14 */
 	const roots =
 		process.platform === "darwin"
 			? [path.join(home, "Library", "Application Support", "Firefox", "Profiles")]
 			: process.platform === "linux"
-				? [path.join(home, ".mozilla", "firefox")]
+				? [
+						// Firefox 147+ migrated Linux profiles to the XDG-compliant
+						// $XDG_CONFIG_HOME/mozilla/firefox location. Try it first so
+						// post-migration installs win, then fall back to the legacy
+						// ~/.mozilla/firefox path for older releases or unmigrated profiles.
+						path.join(xdgConfigHome, "mozilla", "firefox"),
+						path.join(home, ".mozilla", "firefox"),
+					]
 				: process.platform === "win32"
 					? appData
 						? [path.join(appData, "Mozilla", "Firefox", "Profiles")]
