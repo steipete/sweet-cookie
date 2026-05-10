@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- Support Firefox 147+ Linux XDG profile roots under
+  `$XDG_CONFIG_HOME/mozilla/firefox`, with legacy `~/.mozilla/firefox`
+  fallback. (`#28`, thanks `@solomonneas`)
+
 ## 0.2.0 - 2026-03-08
 
 ### Fixed
