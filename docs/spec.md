@@ -34,9 +34,10 @@ High-signal options:
 - `url`: primary target URL (host drives filtering)
 - `origins`: extra origins (OAuth, multi-domain auth)
 - `names`: allowlist cookie names
-- `browsers`: ordered sources (`chrome|edge|safari|firefox`)
+- `browsers`: ordered sources (`chrome|edge|safari|firefox`); default is `chrome`, `safari`, `firefox`
 - `mode`: `merge` (default) or `first`
-- `profile` / `chromeProfile`: Chrome profile name/path
+- `profile`: shared Chromium alias (`chromeProfile` / `edgeProfile`)
+- `chromeProfile`: Chrome profile name/path
 - `chromiumBrowser`: macOS-only explicit `chrome|brave|arc|chromium` target for the `chrome` backend
 - `edgeProfile`: Edge profile name/path
 - `firefoxProfile`: Firefox profile name/path
@@ -59,6 +60,7 @@ High-signal options:
        - Windows: DPAPI unwrap (Local State) + AES-GCM
        - Linux: v10 (peanuts) + v11 (keyring via `secret-tool` or `kwallet-query` + `dbus-send`)
      - Linux safe-storage overrides support Chrome, Edge, and Brave env passwords
+     - Linux/Windows Brave and other Chromium-family profiles work when the caller passes an explicit `chromeProfile` path to that profile/DB
      - app-bound cookies: expect failures; prefer inline/export
    - **Edge**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)
@@ -80,7 +82,7 @@ High-signal options:
 
 ## Extension (`apps/extension`)
 
-## Outputs (formats)
+### Outputs (formats)
 
 ### 1) JSON (preferred)
 
@@ -123,50 +125,46 @@ Notes:
 
 Same JSON as (1), then base64-encode the full JSON string.
 
-Use-cases:
-
-- quick transfer over chat
-
-### 3) Puppeteer cookies (optional)
-
-Some callers use Puppeteer’s cookie shape (`Secure`/`HttpOnly` capitalization). This is optional if you standardize on the library’s `Cookie` shape and only convert at the edges.
-
 ## Inputs / UI
 
-Popup UX (minimal):
+Popup UX (actual):
 
-- Target URL input (default: current tab URL)
+- Target URL input, prefilled from the active tab when available
 - Extra origins (multi-line), optional
 - Cookie allowlist (comma-separated names), optional
-- “Copy JSON”, “Copy base64”, “Download .json”
-- “Dry preview” table: cookie count + domains + redacted values (first 6 chars)
+- `Copy JSON`, `Copy base64`, `Download`
+- Preview area:
+  - before export: config summary (`origins`, allowlist count, ready state)
+  - after export: cookie count, top domains, redacted sample values
 
 Defaults:
 
 - `targetUrl` = active tab URL
 - `origins` = `{targetUrl.origin}` plus any configured extras
-- `allowlist` = empty (export all) unless a preset is chosen
-
-Presets (optional, for speed):
-
-- “Site A” / “Site B” examples for repeated workflows
+- `allowlist` = empty (export all)
+- invalid extra-origin lines are ignored
+- persisted in `chrome.storage.local`: `extraOrigins`, `allowlist`
 
 ## Permissions model (Manifest V3)
 
-We need:
+Manifest:
 
-- `cookies` permission
-- host permissions for the relevant domains/origins
+- `cookies`
+- `storage`
+- `activeTab`
+- optional host permissions: `*://*/*`
 
-Prefer **optional host permissions** requested at runtime:
+Runtime:
 
-- On “Export”, compute required origins and call `chrome.permissions.request({ origins })`
-- If denied, show a clear error and a “Grant permissions” retry button
+- On export, compute required origins and call `chrome.permissions.request({ origins })`
+- Requested permissions use `protocol//hostname/*` patterns derived from normalized origins
+- If denied, show a clear error; user retries by clicking export again
+- `activeTab` is only used to prefill the target URL from the current tab
 
 Why:
 
 - Keeps install footprint small.
-- Makes the “this is reading cookies for these domains” explicit.
+- Makes the permission request explicit at the point of export.
 
 ## Cookie collection algorithm
 
@@ -179,30 +177,29 @@ Steps:
 
 1. Normalize origins (force trailing `/`, drop query/hash)
 2. For each origin:
-   - Derive `domain` candidates:
-     - If origin hostname is `localhost` or an IP: query via `url` matching (Chrome cookies API supports `url` filter).
-     - Else: query `chrome.cookies.getAll({ url: origin })` (preferred; avoids home-grown domain logic).
+   - Query `chrome.cookies.getAll({ url: origin })`
 3. Merge + dedupe:
    - key = `${cookie.name}|${cookie.domain}|${cookie.path}|${cookie.storeId}`
 4. Filter:
    - if allowlist is present: keep only matching cookie names
 5. Serialize:
-   - Map Chrome extension cookie fields → CDP-ish `CookieParam` fields:
+   - Map Chrome extension cookie fields to Sweet Cookie cookie fields:
      - `name`, `value`, `domain`, `path`
      - `secure`, `httpOnly`
      - `sameSite` (map Chrome enum to `Strict|Lax|None` strings)
      - `expires`: from `expirationDate` (seconds); omit if missing
+     - strip a leading `.` from `domain`; if no domain is present, fall back to the origin hostname
    - Do not persist raw cookies beyond the export action
 
-Important: avoid re-implementing RFC cookie matching/order. If we export for reuse (Oracle/SweetLink), “set cookies” is what matters; ordering is not.
+Important: avoid re-implementing RFC cookie matching/order. If we export for reuse, "set cookies" is what matters; ordering is not.
 
 ## Security / safety constraints
 
 - No automatic/background exports. User gesture only.
 - No network exfiltration. No remote endpoints.
 - No logging raw cookie values (ever). UI should show redacted values only.
-- Offer “allowlist names” as a first-class control.
-- Prefer in-memory only. If we add “save presets”, store _only_ domains/origins/allowlists, never values.
+- Offer allowlist names as a first-class control.
+- Persist only `extraOrigins` / `allowlist`; never cookie values.
 
 ## Versioning
 
@@ -210,8 +207,7 @@ Important: avoid re-implementing RFC cookie matching/order. If we export for reu
 - Bump only on breaking schema changes.
 - Include `generatedAt`, `targetUrl`, `origins`, `source`.
 
-## Open questions (decide early)
+## Notes
 
-- Do we want a “cookie names allowlist” preset per target (ChatGPT/Gemini/X), or always export all and let tools filter?
-- Do we ship a CLI companion (`sweet-cookie dump --url …`) that talks to the extension via native messaging / localhost? (likely no; keep extension-only first.)
-- Should we support multiple cookie stores (`storeId`) explicitly, or just merge everything? (default merge.)
+- The popup preview does not pre-read cookies; cookie/domain summary appears after export.
+- Export format stays `version: 1`; bump only on breaking schema changes.

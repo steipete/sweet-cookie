@@ -23,7 +23,7 @@ Sweet Cookie avoids native Node addons by design:
 ## What’s included
 
 - `@steipete/sweet-cookie`: the library (`getCookies()`, `toCookieHeader()`).
-- `apps/extension`: a Chrome MV3 exporter that produces an inline cookie payload (JSON/base64/file) for the cases where local reads can’t work (app-bound cookies, keychain prompts, remote machines, etc.).
+- `apps/extension`: a Chrome/Chromium MV3 exporter that produces an inline cookie payload (JSON/base64/file) for the cases where local reads can’t work (app-bound cookies, keychain prompts, remote machines, etc.).
 
 ## Requirements
 
@@ -62,6 +62,8 @@ for (const warning of warnings) console.warn(warning);
 const cookieHeader = toCookieHeader(cookies, { dedupeByName: true });
 ```
 
+If `browsers` is omitted, Sweet Cookie defaults to `["chrome", "safari", "firefox"]`.
+
 Multiple origins (common with OAuth / SSO redirects):
 
 ```ts
@@ -81,6 +83,18 @@ await getCookies({
 	url: "https://example.com/",
 	browsers: ["chrome"], // or ['edge']
 	chromeProfile: "Default", // or '/path/to/.../Network/Cookies'
+});
+```
+
+`profile` is a shared alias for `chromeProfile` / `edgeProfile` when you want one override for Chromium backends.
+
+Target Brave on Linux or another Chromium-family profile by passing the actual profile dir / DB path:
+
+```ts
+await getCookies({
+	url: "https://example.com/",
+	browsers: ["chrome"],
+	chromeProfile: "~/.config/BraveSoftware/Brave-Browser/Default",
 });
 ```
 
@@ -121,6 +135,7 @@ If any inline source yields cookies, Sweet Cookie returns that result immediatel
 - `chrome` (Chromium-based): macOS / Windows / Linux
   - Default discovery targets Google Chrome paths.
   - On macOS, the default `chrome` backend checks Google Chrome and Brave roots. `chromiumBrowser` can pin `chrome`, `brave`, `arc`, or `chromium`.
+  - On Linux/Windows, Brave and other Chromium-family profiles work when you pass an explicit `chromeProfile` path to that profile or `Cookies` DB.
   - Other Chromium browsers typically work by passing `chromeProfile` as an explicit `Cookies` DB path.
   - Only supports modern Chromium cookie DB schemas (roughly Chrome `>=100`).
 - `edge` (Chromium-based): macOS / Windows / Linux
@@ -135,7 +150,9 @@ If any inline source yields cookies, Sweet Cookie returns that result immediatel
 - `origins`: additional origins to consider (deduped).
 - `names`: allowlist cookie names.
 - `browsers`: source order (`chrome`, `edge`, `firefox`, `safari`).
+- default browser order: `chrome`, `safari`, `firefox`.
 - `mode`: `merge` (default) or `first`.
+- `profile`: shared alias for `chromeProfile` / `edgeProfile`.
 - `chromeProfile`: Chrome profile name/path (profile dir or `Cookies` DB file).
 - `chromiumBrowser`: macOS-only explicit Chromium-family target for the `chrome` backend (`chrome|brave|arc|chromium`).
 - `edgeProfile`: Edge profile name/path (profile dir or `Cookies` DB file).
@@ -144,7 +161,7 @@ If any inline source yields cookies, Sweet Cookie returns that result immediatel
 - Inline sources: `inlineCookiesJson`, `inlineCookiesBase64`, `inlineCookiesFile`.
 - `timeoutMs`: max time for OS helper calls (keychain/keyring/DPAPI).
 - `includeExpired`: include expired cookies in results.
-- `debug`: add extra provider warnings (no raw cookie values).
+- `debug`: add extra provider warnings (primarily Chromium providers; never raw cookie values).
 
 ## Env
 
@@ -159,12 +176,28 @@ If any inline source yields cookies, Sweet Cookie returns that result immediatel
 Sweet Cookie accepts either a plain `Cookie[]` or `{ cookies: Cookie[] }`.
 The extension export format is documented in `docs/spec.md`.
 
+`inlineCookiesFile` accepts a file path. Paths ending in `.json` or `.base64` are treated as files first, then parsed as JSON/base64 payloads.
+
+## Extension exporter
+
+`apps/extension` is a small Chrome MV3 popup that exports cookies from the current profile into the same inline format the library consumes.
+
+Current behavior:
+
+- Inputs: target URL (prefilled from the active tab when available), extra origins, cookie-name allowlist.
+- Actions: Copy JSON, Copy base64, Download JSON (`sweet-cookie.cookies.json`).
+- Permissions: runtime host-permission request on export for the exact origins entered.
+- Local persistence: extra origins + allowlist in `chrome.storage.local`.
+- Network: none. User-triggered only.
+- Preview:
+  - before export: origin count, allowlist count, ready state
+  - after export: cookie count, top domains, redacted sample values
+
 ## Development
 
 ```bash
+pnpm check
 pnpm build
-pnpm typecheck
-pnpm lint
 pnpm test
 pnpm test:bun
 ```
