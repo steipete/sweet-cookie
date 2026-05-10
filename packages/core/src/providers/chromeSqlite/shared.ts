@@ -7,7 +7,7 @@ import { normalizeExpiration } from "../../util/expire.js";
 import { hostMatchesCookieDomain } from "../../util/hostMatch.js";
 import { importNodeSqlite, supportsReadBigInts } from "../../util/nodeSqlite.js";
 import { isBunRuntime } from "../../util/runtime.js";
-import { isV20AppBoundEncryption } from "./crypto.js";
+import { getChromiumEncryptedValuePrefix } from "./crypto.js";
 
 type ChromeRow = {
 	name?: unknown;
@@ -96,7 +96,7 @@ function collectChromeCookiesFromRows(
 	const cookies: Cookie[] = [];
 	const now = Math.floor(Date.now() / 1000);
 	let warnedEncryptedType = false;
-	let v20CookieCount = 0;
+	let v20DecryptFailureCount = 0;
 
 	for (const row of rows) {
 		const name = typeof row.name === "string" ? row.name : null;
@@ -130,11 +130,11 @@ function collectChromeCookiesFromRows(
 				}
 				continue;
 			}
-			// Track v20 (App-Bound Encryption) cookies for warning
-			if (isV20AppBoundEncryption(encryptedBytes)) {
-				v20CookieCount++;
-			}
+			const encryptedPrefix = getChromiumEncryptedValuePrefix(encryptedBytes);
 			value = decrypt(encryptedBytes);
+			if (value === null && encryptedPrefix === "v20") {
+				v20DecryptFailureCount++;
+			}
 		}
 		if (value === null) {
 			continue;
@@ -189,12 +189,10 @@ function collectChromeCookiesFromRows(
 		cookies.push(cookie);
 	}
 
-	// Warn about v20 (App-Bound Encryption) cookies that couldn't be decrypted
-	// This requires SYSTEM-level DPAPI access which is not possible in pure Node.js
-	if (v20CookieCount > 0) {
+	if (v20DecryptFailureCount > 0) {
 		warnings.push(
-			`${v20CookieCount} cookie(s) use Chrome v20 App-Bound Encryption (Chrome 127+) and cannot be decrypted. ` +
-				`See: https://github.com/steipete/sweet-cookie#v20-app-bound-encryption`,
+			`${v20DecryptFailureCount} Chromium cookie(s) use v20 App-Bound Encryption and could not be decrypted. ` +
+				"Use the extension exporter or Chrome DevTools Protocol for those cookies.",
 		);
 	}
 

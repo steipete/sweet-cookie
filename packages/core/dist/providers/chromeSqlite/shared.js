@@ -5,6 +5,7 @@ import { normalizeExpiration } from "../../util/expire.js";
 import { hostMatchesCookieDomain } from "../../util/hostMatch.js";
 import { importNodeSqlite, supportsReadBigInts } from "../../util/nodeSqlite.js";
 import { isBunRuntime } from "../../util/runtime.js";
+import { getChromiumEncryptedValuePrefix } from "./crypto.js";
 export async function getCookiesFromChromeSqliteDb(options, origins, allowlistNames, decrypt) {
     const warnings = [];
     // Chrome can keep its cookie DB locked and/or rely on WAL sidecars.
@@ -53,6 +54,7 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
     const cookies = [];
     const now = Math.floor(Date.now() / 1000);
     let warnedEncryptedType = false;
+    let v20DecryptFailureCount = 0;
     for (const row of rows) {
         const name = typeof row.name === "string" ? row.name : null;
         if (!name) {
@@ -82,7 +84,11 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
                 }
                 continue;
             }
+            const encryptedPrefix = getChromiumEncryptedValuePrefix(encryptedBytes);
             value = decrypt(encryptedBytes);
+            if (value === null && encryptedPrefix === "v20") {
+                v20DecryptFailureCount++;
+            }
         }
         if (value === null) {
             continue;
@@ -125,6 +131,10 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
             cookie.sameSite = sameSite;
         }
         cookies.push(cookie);
+    }
+    if (v20DecryptFailureCount > 0) {
+        warnings.push(`${v20DecryptFailureCount} Chromium cookie(s) use v20 App-Bound Encryption and could not be decrypted. ` +
+            "Use the extension exporter or Chrome DevTools Protocol for those cookies.");
     }
     return cookies;
 }

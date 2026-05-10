@@ -6,9 +6,17 @@ import {
 	decryptChromiumAes128CbcCookieValue,
 	decryptChromiumAes256GcmCookieValue,
 	deriveAes128CbcKeyFromPassword,
+	getChromiumEncryptedValuePrefix,
 } from "../src/providers/chromeSqlite/crypto.js";
 
 describe("chromium cookie crypto", () => {
+	it("detects Chromium encrypted value prefixes", () => {
+		expect(getChromiumEncryptedValuePrefix(Buffer.from("v10payload"))).toBe("v10");
+		expect(getChromiumEncryptedValuePrefix(Buffer.from("v20payload"))).toBe("v20");
+		expect(getChromiumEncryptedValuePrefix(Buffer.from("v2"))).toBeNull();
+		expect(getChromiumEncryptedValuePrefix(Buffer.from("abc"))).toBeNull();
+	});
+
 	it("decrypts AES-128-CBC v10 and strips hash prefix when requested", () => {
 		const key = deriveAes128CbcKeyFromPassword("pw", { iterations: 1003 });
 		const iv = Buffer.alloc(16, 0x20);

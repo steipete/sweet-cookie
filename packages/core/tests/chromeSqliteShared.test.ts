@@ -165,4 +165,84 @@ describe("chrome sqlite provider (shared)", () => {
 		expect(res.cookies).toHaveLength(1);
 		expect(res.cookies[0]?.expires).toBe(1_801_994_396);
 	});
+
+	it("warns only for v20 encrypted values that fail to decrypt", async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-chrome-shared-"));
+		const dbPath = path.join(dir, "Cookies");
+		writeFileSync(dbPath, "", "utf8");
+
+		vi.doMock("node:sqlite", () => {
+			class DatabaseSync {
+				prepare(sql: string) {
+					return {
+						all() {
+							if (sql.includes("FROM meta")) {
+								return [{ value: 24 }];
+							}
+							return [
+								{
+									name: "v20_bad",
+									value: "",
+									host_key: ".example.com",
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: Buffer.from("v20bad", "utf8"),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+								{
+									name: "v11_bad",
+									value: "",
+									host_key: ".example.com",
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: Buffer.from("v11bad", "utf8"),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+								{
+									name: "v20_ok",
+									value: "",
+									host_key: ".example.com",
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: Buffer.from("v20ok", "utf8"),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+							];
+						},
+					};
+				}
+				close() {}
+			}
+			return { DatabaseSync };
+		});
+
+		const { getCookiesFromChromeSqliteDb } =
+			await import("../src/providers/chromeSqlite/shared.js");
+
+		const decrypt = vi.fn((encryptedValue: Uint8Array) => {
+			const raw = Buffer.from(encryptedValue).toString("utf8");
+			return raw === "v20ok" ? "ok" : null;
+		});
+
+		const res = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true },
+			["https://example.com/"],
+			null,
+			decrypt,
+		);
+
+		expect(res.cookies.map((cookie) => cookie.name)).toEqual(["v20_ok"]);
+		expect(res.warnings).toEqual([
+			"1 Chromium cookie(s) use v20 App-Bound Encryption and could not be decrypted. Use the extension exporter or Chrome DevTools Protocol for those cookies.",
+		]);
+		expect(decrypt).toHaveBeenCalledTimes(3);
+	});
 });

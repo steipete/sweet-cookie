@@ -31,8 +31,8 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
-		"typecheck": "tsc -p tsconfig.json --noEmit"
+		"build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsgo -p tsconfig.json",
+		"typecheck": "tsgo -p tsconfig.json --noEmit"
 	},
 	"engines": {
 		"node": ">=22"

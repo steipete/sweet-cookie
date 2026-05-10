@@ -1,3 +1,4 @@
+export declare function getChromiumEncryptedValuePrefix(encryptedValue: Uint8Array): string | null;
 export declare function deriveAes128CbcKeyFromPassword(password: string, options: {
     iterations: number;
 }): Buffer;
