@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Enable `node:sqlite` `readBigInts` on Node 22+ so current Chromium cookie
+  expiry values do not overflow on the active LTS line. (`#25`, thanks
+  `@navarch-orion`)
 - Support Firefox 147+ Linux XDG profile roots under
   `$XDG_CONFIG_HOME/mozilla/firefox`, with legacy `~/.mozilla/firefox`
   fallback. (`#28`, thanks `@solomonneas`)
