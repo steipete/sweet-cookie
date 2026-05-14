@@ -36,17 +36,34 @@ High-signal options:
 - `names`: allowlist cookie names
 - `browsers`: ordered sources (`chrome|edge|safari|firefox`); default is `chrome`, `safari`, `firefox`
 - `mode`: `merge` (default) or `first`
-- `profile`: shared Chromium alias (`chromeProfile` / `edgeProfile`)
-- `chromeProfile`: Chrome profile name/path
+- `profile`: shared Chromium alias (`chromeProfile` / `edgeProfile`); accepts a string, string array, or `ALL_PROFILES`; when omitted, Chromium backends keep their default profile behavior
+- `chromeProfile`: Chrome profile directory, display name from Chromium `Local State`, or path; accepts a string, string array, or `ALL_PROFILES`
 - `chromiumBrowser`: macOS-only explicit `chrome|brave|arc|chromium` target for the `chrome` backend
-- `edgeProfile`: Edge profile name/path
-- `firefoxProfile`: Firefox profile name/path
-- `safariCookiesFile`: override path to `Cookies.binarycookies`
+- `edgeProfile`: Edge profile directory, display name from Chromium `Local State`, or path; accepts a string, string array, or `ALL_PROFILES`
+- `firefoxProfile`: Firefox profile name/path; accepts a string, string array, or `ALL_PROFILES`
+- `safariCookiesFile`: override path to `Cookies.binarycookies`; accepts a string or string array
 - `timeoutMs`: timeout for OS helpers (keychain/keyring/DPAPI)
 - `debug`: extra provider warnings (never raw values)
 - `includeExpired`: include expired cookies
 - Inline inputs (escape hatch):
   - `inlineCookiesJson`, `inlineCookiesBase64`, `inlineCookiesFile`
+
+### Profile selection
+
+- Chrome / Edge:
+  - omitted profile means the default Chromium profile (`Default`)
+  - string selector accepts a profile directory (`Default`, `Profile 2`), a display name from Chromium `Local State` (`profile.info_cache.*.name`, for example `Work`), a profile directory path, or a `Cookies` DB path
+  - string arrays read multiple selected profiles
+  - `ALL_PROFILES` discovers every local profile for that backend
+- Firefox:
+  - omitted profile means `default-release` when present, otherwise the first discovered profile
+  - string selector accepts a profile name, profile directory path, or `cookies.sqlite` path
+  - string arrays read multiple selected profiles
+  - `ALL_PROFILES` discovers every local Firefox profile
+- Safari:
+  - no profile selector
+  - `safariCookiesFile` is only a `Cookies.binarycookies` path override, or an array of path overrides
+- Use the exported `ALL_PROFILES` sentinel to request all-profile discovery.
 
 ### Provider order
 

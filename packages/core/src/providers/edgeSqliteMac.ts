@@ -1,22 +1,31 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
-import type { GetCookiesResult } from "../types.js";
+import type { Cookie, GetCookiesResult } from "../types.js";
 import {
 	decryptChromiumAes128CbcCookieValue,
 	deriveAes128CbcKeyFromPassword,
 } from "./chromeSqlite/crypto.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
 import { readKeychainGenericPasswordFirst } from "./chromium/macosKeychain.js";
-import { resolveCookiesDbFromProfileOrRoots } from "./chromium/paths.js";
+import {
+	resolveCookiesDbsFromProfileOrRoots,
+	type ChromiumProfileSelector,
+	type ResolvedCookiesDb,
+} from "./chromium/paths.js";
 
 export async function getCookiesFromEdgeSqliteMac(
-	options: { profile?: string; includeExpired?: boolean; debug?: boolean; timeoutMs?: number },
+	options: {
+		profile?: ChromiumProfileSelector;
+		includeExpired?: boolean;
+		debug?: boolean;
+		timeoutMs?: number;
+	},
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {
-	const dbPath = resolveEdgeCookiesDb(options.profile);
-	if (!dbPath) {
+	const dbs = resolveEdgeCookiesDbs(options.profile);
+	if (!dbs.length) {
 		return { cookies: [], warnings: ["Edge cookies database not found."] };
 	}
 
@@ -49,35 +58,40 @@ export async function getCookiesFromEdgeSqliteMac(
 			treatUnknownPrefixAsPlaintext: true,
 		});
 
-	const dbOptions: { dbPath: string; profile?: string; includeExpired?: boolean; debug?: boolean } =
-		{
-			dbPath,
-		};
-	if (options.profile) {
-		dbOptions.profile = options.profile;
+	const cookies: Cookie[] = [];
+	for (const db of dbs) {
+		const dbOptions: {
+			dbPath: string;
+			profile?: string;
+			includeExpired?: boolean;
+			debug?: boolean;
+		} = { dbPath: db.dbPath };
+		if (db.profile !== undefined) {
+			dbOptions.profile = db.profile;
+		}
+		if (options.includeExpired !== undefined) {
+			dbOptions.includeExpired = options.includeExpired;
+		}
+		if (options.debug !== undefined) {
+			dbOptions.debug = options.debug;
+		}
+		const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
+		warnings.push(...result.warnings);
+		cookies.push(...result.cookies);
 	}
-	if (options.includeExpired !== undefined) {
-		dbOptions.includeExpired = options.includeExpired;
-	}
-	if (options.debug !== undefined) {
-		dbOptions.debug = options.debug;
-	}
-
-	const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-	result.warnings.unshift(...warnings);
-	return result;
+	return { cookies, warnings };
 }
 
-function resolveEdgeCookiesDb(profile?: string): string | null {
+function resolveEdgeCookiesDbs(profile?: ChromiumProfileSelector): ResolvedCookiesDb[] {
 	const home = homedir();
 	/* c8 ignore next */
 	const roots =
 		process.platform === "darwin"
 			? [path.join(home, "Library", "Application Support", "Microsoft Edge")]
 			: [];
-	const args: Parameters<typeof resolveCookiesDbFromProfileOrRoots>[0] = { roots };
+	const args: Parameters<typeof resolveCookiesDbsFromProfileOrRoots>[0] = { roots };
 	if (profile !== undefined) {
 		args.profile = profile;
 	}
-	return resolveCookiesDbFromProfileOrRoots(args);
+	return resolveCookiesDbsFromProfileOrRoots(args);
 }

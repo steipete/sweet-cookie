@@ -1,16 +1,40 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { expandPath, looksLikePath } from "./paths.js";
+import {
+	expandPath,
+	looksLikePath,
+	resolveCookiesDbsFromProfileOrRoots,
+	type ChromiumProfileSelector,
+} from "./paths.js";
 
 export function resolveChromiumPathsWindows(options: {
 	localAppDataVendorPath: string;
-	profile?: string;
+	profile?: ChromiumProfileSelector;
 }): { dbPath: string | null; userDataDir: string | null } {
+	const resolved = resolveChromiumPathsWindowsAll(options)[0];
+	if (resolved) {
+		return { dbPath: resolved.dbPath, userDataDir: resolved.userDataDir };
+	}
+	if (typeof options.profile === "string" && looksLikePath(options.profile)) {
+		const expanded = expandPath(options.profile);
+		if (existsSync(path.join(expanded, "Local State"))) {
+			return { dbPath: null, userDataDir: expanded };
+		}
+	}
+	const localAppData = process.env["LOCALAPPDATA"];
+	const root = localAppData ? path.join(localAppData, options.localAppDataVendorPath) : null;
+	return { dbPath: null, userDataDir: root };
+}
+
+export function resolveChromiumPathsWindowsAll(options: {
+	localAppDataVendorPath: string;
+	profile?: ChromiumProfileSelector;
+}): Array<{ dbPath: string; userDataDir: string; profile?: string }> {
 	const localAppData = process.env["LOCALAPPDATA"];
 	const root = localAppData ? path.join(localAppData, options.localAppDataVendorPath) : null;
 
-	if (options.profile && looksLikePath(options.profile)) {
+	if (typeof options.profile === "string" && looksLikePath(options.profile)) {
 		const expanded = expandPath(options.profile);
 		const candidates = expanded.endsWith("Cookies")
 			? [expanded]
@@ -24,28 +48,32 @@ export function resolveChromiumPathsWindows(options: {
 				continue;
 			}
 			const userDataDir = findUserDataDir(candidate);
-			return { dbPath: candidate, userDataDir };
+			return userDataDir
+				? [{ dbPath: candidate, userDataDir, profile: path.basename(expanded) }]
+				: [];
 		}
 		if (existsSync(path.join(expanded, "Local State"))) {
-			return { dbPath: null, userDataDir: expanded };
+			return [];
 		}
 	}
 
-	const profileDir =
-		options.profile && options.profile.trim().length > 0 ? options.profile.trim() : "Default";
 	if (!root) {
-		return { dbPath: null, userDataDir: null };
+		return [];
 	}
-	const candidates = [
-		path.join(root, profileDir, "Network", "Cookies"),
-		path.join(root, profileDir, "Cookies"),
-	];
-	for (const candidate of candidates) {
-		if (existsSync(candidate)) {
-			return { dbPath: candidate, userDataDir: root };
+	const args: Parameters<typeof resolveCookiesDbsFromProfileOrRoots>[0] = { roots: [root] };
+	if (options.profile !== undefined) {
+		args.profile = options.profile;
+	}
+	return resolveCookiesDbsFromProfileOrRoots(args).map((item) => {
+		const resolved: { dbPath: string; userDataDir: string; profile?: string } = {
+			dbPath: item.dbPath,
+			userDataDir: root,
+		};
+		if (item.profile !== undefined) {
+			resolved.profile = item.profile;
 		}
-	}
-	return { dbPath: null, userDataDir: root };
+		return resolved;
+	});
 }
 
 function findUserDataDir(cookiesDbPath: string): string | null {

@@ -3,12 +3,16 @@ import { getCookiesFromEdge } from "./providers/edge.js";
 import { getCookiesFromFirefox } from "./providers/firefoxSqlite.js";
 import { getCookiesFromInline } from "./providers/inline.js";
 import { getCookiesFromSafari } from "./providers/safariBinaryCookies.js";
+import { ALL_PROFILES } from "./types.js";
+import { ALL_CHROMIUM_PROFILES } from "./providers/chromium/paths.js";
 import type {
 	BrowserName,
 	Cookie,
 	CookieHeaderOptions,
 	GetCookiesOptions,
 	GetCookiesResult,
+	PathType,
+	ProfileType,
 } from "./types.js";
 import { normalizeOrigins } from "./util/origins.js";
 
@@ -55,11 +59,12 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 	}
 
 	const merged = new Map<string, Cookie>();
-	const tryAdd = (cookie: Cookie) => {
+	const tryAdd = (cookie: Cookie, options: { includeProfileInKey?: boolean } = {}) => {
 		// Dedupe by name+domain+path (a common stable identity for HTTP cookies).
 		const domain = cookie.domain ?? "";
 		const pathValue = cookie.path ?? "";
-		const key = `${cookie.name}|${domain}|${pathValue}`;
+		const profile = options.includeProfileInKey ? (cookie.source?.profile ?? "") : "";
+		const key = `${cookie.name}|${domain}|${pathValue}|${profile}`;
 		if (!merged.has(key)) {
 			merged.set(key, cookie);
 		}
@@ -67,13 +72,11 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 
 	for (const browser of browsers) {
 		let result: GetCookiesResult;
+		let includeProfileInMergeKey = false;
 		if (browser === "chrome") {
 			const chromeOptions: Parameters<typeof getCookiesFromChrome>[0] = {};
 			const chromeProfile =
 				options.chromeProfile ?? options.profile ?? readEnv("SWEET_COOKIE_CHROME_PROFILE");
-			if (chromeProfile) {
-				chromeOptions.profile = chromeProfile;
-			}
 			if (options.timeoutMs !== undefined) {
 				chromeOptions.timeoutMs = options.timeoutMs;
 			}
@@ -87,7 +90,14 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 				chromeOptions.chromiumBrowser = options.chromiumBrowser;
 			}
 
-			result = await getCookiesFromChrome(chromeOptions, origins, names);
+			result = await collectProfileResults((profile) => {
+				const profileOptions = { ...chromeOptions };
+				if (profile !== undefined) {
+					profileOptions.profile = profile === ALL_PROFILES ? ALL_CHROMIUM_PROFILES : profile;
+				}
+				return getCookiesFromChrome(profileOptions, origins, names);
+			}, chromeProfile);
+			includeProfileInMergeKey = isMultiProfileSelector(chromeProfile);
 		} else if (browser === "edge") {
 			const edgeOptions: Parameters<typeof getCookiesFromEdge>[0] = {};
 			const edgeProfile =
@@ -95,9 +105,6 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 				options.profile ??
 				readEnv("SWEET_COOKIE_EDGE_PROFILE") ??
 				readEnv("SWEET_COOKIE_CHROME_PROFILE");
-			if (edgeProfile) {
-				edgeOptions.profile = edgeProfile;
-			}
 			if (options.timeoutMs !== undefined) {
 				edgeOptions.timeoutMs = options.timeoutMs;
 			}
@@ -108,28 +115,52 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 				edgeOptions.debug = options.debug;
 			}
 
-			result = await getCookiesFromEdge(edgeOptions, origins, names);
+			result = await collectProfileResults((profile) => {
+				const profileOptions = { ...edgeOptions };
+				if (profile !== undefined) {
+					profileOptions.profile = profile === ALL_PROFILES ? ALL_CHROMIUM_PROFILES : profile;
+				}
+				return getCookiesFromEdge(profileOptions, origins, names);
+			}, edgeProfile);
+			includeProfileInMergeKey = isMultiProfileSelector(edgeProfile);
 		} else if (browser === "firefox") {
 			const firefoxOptions: Parameters<typeof getCookiesFromFirefox>[0] = {};
 			const firefoxProfile = options.firefoxProfile ?? readEnv("SWEET_COOKIE_FIREFOX_PROFILE");
-			if (firefoxProfile) {
-				firefoxOptions.profile = firefoxProfile;
-			}
 			if (options.includeExpired !== undefined) {
 				firefoxOptions.includeExpired = options.includeExpired;
 			}
 
-			result = await getCookiesFromFirefox(firefoxOptions, origins, names);
+			result = await collectProfileResults((profile) => {
+				const profileOptions = { ...firefoxOptions };
+				if (profile !== undefined) {
+					profileOptions.profile = profile;
+				}
+				return getCookiesFromFirefox(profileOptions, origins, names);
+			}, firefoxProfile);
+			includeProfileInMergeKey = isMultiProfileSelector(firefoxProfile);
 		} else {
 			const safariOptions: Parameters<typeof getCookiesFromSafari>[0] = {};
 			if (options.includeExpired !== undefined) {
 				safariOptions.includeExpired = options.includeExpired;
 			}
-			if (options.safariCookiesFile) {
-				safariOptions.file = options.safariCookiesFile;
-			}
 
-			result = await getCookiesFromSafari(safariOptions, origins, names);
+			const safariWarnings: string[] = [];
+			const safariCookies = new Map<string, Cookie>();
+			for (const file of normalizePathSelectors(options.safariCookiesFile)) {
+				const fileOptions = { ...safariOptions };
+				if (file !== undefined) {
+					fileOptions.file = file;
+				}
+				const safariResult = await getCookiesFromSafari(fileOptions, origins, names);
+				safariWarnings.push(...safariResult.warnings);
+				for (const cookie of safariResult.cookies) {
+					const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}`;
+					if (!safariCookies.has(key)) {
+						safariCookies.set(key, cookie);
+					}
+				}
+			}
+			result = { cookies: Array.from(safariCookies.values()), warnings: safariWarnings };
 		}
 
 		warnings.push(...result.warnings);
@@ -140,11 +171,71 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 		}
 
 		for (const cookie of result.cookies) {
-			tryAdd(cookie);
+			tryAdd(cookie, { includeProfileInKey: includeProfileInMergeKey });
 		}
 	}
 
 	return { cookies: Array.from(merged.values()), warnings };
+}
+
+async function collectProfileResults(
+	readProfile: (profile: string | typeof ALL_PROFILES | undefined) => Promise<GetCookiesResult>,
+	profile: ProfileType | undefined,
+): Promise<GetCookiesResult> {
+	const selectors = normalizeProfileSelectors(profile);
+	const warnings: string[] = [];
+	const merged = new Map<string, Cookie>();
+	const includeProfileInKey = selectors.length > 1 || selectors[0] === ALL_PROFILES;
+
+	for (const selector of selectors) {
+		const result = await readProfile(selector);
+		warnings.push(...result.warnings);
+		for (const cookie of result.cookies) {
+			const profileKey = includeProfileInKey ? (cookie.source?.profile ?? "") : "";
+			const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profileKey}`;
+			if (!merged.has(key)) {
+				merged.set(key, cookie);
+			}
+		}
+	}
+
+	return { cookies: Array.from(merged.values()), warnings };
+}
+
+function normalizeProfileSelectors(
+	profile: ProfileType | undefined,
+): Array<string | typeof ALL_PROFILES | undefined> {
+	if (profile === undefined) {
+		return [undefined];
+	}
+	if (profile === ALL_PROFILES) {
+		return [ALL_PROFILES];
+	}
+	if (Array.isArray(profile)) {
+		const cleaned = profile.map((value) => value.trim()).filter(Boolean);
+		return cleaned.length ? cleaned : [undefined];
+	}
+	const cleaned = profile.trim();
+	return cleaned ? [cleaned] : [undefined];
+}
+
+function isMultiProfileSelector(profile: ProfileType | undefined): boolean {
+	if (profile === ALL_PROFILES) {
+		return true;
+	}
+	return Array.isArray(profile) && normalizeProfileSelectors(profile).length > 1;
+}
+
+function normalizePathSelectors(pathValue: PathType | undefined): Array<string | undefined> {
+	if (pathValue === undefined) {
+		return [undefined];
+	}
+	if (Array.isArray(pathValue)) {
+		const cleaned = pathValue.map((value) => value.trim()).filter(Boolean);
+		return cleaned.length ? cleaned : [undefined];
+	}
+	const cleaned = pathValue.trim();
+	return cleaned ? [cleaned] : [undefined];
 }
 
 /**

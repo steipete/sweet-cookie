@@ -1,10 +1,16 @@
 import type { Cookie, GetCookiesResult } from "../types.js";
+import type { ChromiumProfileSelector } from "./chromium/paths.js";
 import { getCookiesFromEdgeSqliteLinux } from "./edgeSqliteLinux.js";
 import { getCookiesFromEdgeSqliteMac } from "./edgeSqliteMac.js";
 import { getCookiesFromEdgeSqliteWindows } from "./edgeSqliteWindows.js";
 
 export async function getCookiesFromEdge(
-	options: { profile?: string; timeoutMs?: number; includeExpired?: boolean; debug?: boolean },
+	options: {
+		profile?: ChromiumProfileSelector;
+		timeoutMs?: number;
+		includeExpired?: boolean;
+		debug?: boolean;
+	},
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {

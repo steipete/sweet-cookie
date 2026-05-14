@@ -1,25 +1,26 @@
-import type { GetCookiesResult } from "../types.js";
+import type { Cookie, GetCookiesResult } from "../types.js";
 import {
 	decryptChromiumAes128CbcCookieValue,
 	deriveAes128CbcKeyFromPassword,
 } from "./chromeSqlite/crypto.js";
 import { getLinuxChromiumSafeStoragePassword } from "./chromeSqlite/linuxKeyring.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
-import { resolveChromiumCookiesDbLinux } from "./chromium/linuxPaths.js";
+import { resolveChromiumCookiesDbsLinux } from "./chromium/linuxPaths.js";
+import type { ChromiumProfileSelector } from "./chromium/paths.js";
 
 export async function getCookiesFromEdgeSqliteLinux(
-	options: { profile?: string; includeExpired?: boolean; debug?: boolean },
+	options: { profile?: ChromiumProfileSelector; includeExpired?: boolean; debug?: boolean },
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {
-	const args: Parameters<typeof resolveChromiumCookiesDbLinux>[0] = {
+	const args: Parameters<typeof resolveChromiumCookiesDbsLinux>[0] = {
 		configDirName: "microsoft-edge",
 	};
 	if (options.profile !== undefined) {
 		args.profile = options.profile;
 	}
-	const dbPath = resolveChromiumCookiesDbLinux(args);
-	if (!dbPath) {
+	const dbs = resolveChromiumCookiesDbsLinux(args);
+	if (!dbs.length) {
 		return { cookies: [], warnings: ["Edge cookies database not found."] };
 	}
 
@@ -54,21 +55,27 @@ export async function getCookiesFromEdgeSqliteLinux(
 		return null;
 	};
 
-	const dbOptions: { dbPath: string; profile?: string; includeExpired?: boolean; debug?: boolean } =
-		{
-			dbPath,
-		};
-	if (options.profile) {
-		dbOptions.profile = options.profile;
+	const warnings = [...keyringWarnings];
+	const cookies: Cookie[] = [];
+	for (const db of dbs) {
+		const dbOptions: {
+			dbPath: string;
+			profile?: string;
+			includeExpired?: boolean;
+			debug?: boolean;
+		} = { dbPath: db.dbPath };
+		if (db.profile !== undefined) {
+			dbOptions.profile = db.profile;
+		}
+		if (options.includeExpired !== undefined) {
+			dbOptions.includeExpired = options.includeExpired;
+		}
+		if (options.debug !== undefined) {
+			dbOptions.debug = options.debug;
+		}
+		const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
+		warnings.push(...result.warnings);
+		cookies.push(...result.cookies);
 	}
-	if (options.includeExpired !== undefined) {
-		dbOptions.includeExpired = options.includeExpired;
-	}
-	if (options.debug !== undefined) {
-		dbOptions.debug = options.debug;
-	}
-
-	const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-	result.warnings.unshift(...keyringWarnings);
-	return result;
+	return { cookies, warnings };
 }

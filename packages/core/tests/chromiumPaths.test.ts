@@ -6,12 +6,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveChromiumCookiesDbLinux } from "../src/providers/chromium/linuxPaths.js";
 import {
+	ALL_CHROMIUM_PROFILES,
 	expandPath,
 	looksLikePath,
 	resolveCookiesDbFromProfileOrRoots,
+	resolveCookiesDbsFromProfileOrRoots,
 	safeStat,
 } from "../src/providers/chromium/paths.js";
 import { resolveChromiumPathsWindows } from "../src/providers/chromium/windowsPaths.js";
+import { ALL_PROFILES } from "../src/types.js";
 
 describe("chromium path helpers", () => {
 	afterEach(() => {
@@ -57,6 +60,70 @@ describe("chromium path helpers", () => {
 		expect(resolveCookiesDbFromProfileOrRoots({ profile: "Profile 2", roots: [root] })).toBe(
 			path.join(root, "Profile 2", "Cookies"),
 		);
+	});
+
+	it("keeps omitted Chromium profile on Default and uses sentinel for all profile DBs", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-profile-aliases-"));
+		const root = path.join(dir, "root");
+		const stringifiedAllProfiles = String(ALL_PROFILES);
+		const defaultDb = path.join(root, "Default", "Network", "Cookies");
+		const workDb = path.join(root, "Profile 1", "Network", "Cookies");
+		const stringifiedAllProfilesDb = path.join(
+			root,
+			stringifiedAllProfiles,
+			"Network",
+			"Cookies",
+		);
+		mkdirSync(path.dirname(defaultDb), { recursive: true });
+		mkdirSync(path.dirname(workDb), { recursive: true });
+		mkdirSync(path.dirname(stringifiedAllProfilesDb), { recursive: true });
+		writeFileSync(defaultDb, "", "utf8");
+		writeFileSync(workDb, "", "utf8");
+		writeFileSync(stringifiedAllProfilesDb, "", "utf8");
+		writeFileSync(
+			path.join(root, "Local State"),
+			JSON.stringify({
+				profile: {
+					info_cache: {
+						Default: { name: "Personal" },
+						"Profile 1": { name: "Work" },
+						[stringifiedAllProfiles]: { name: stringifiedAllProfiles },
+					},
+				},
+			}),
+			"utf8",
+		);
+
+		expect(resolveCookiesDbFromProfileOrRoots({ profile: "Work", roots: [root] })).toBe(workDb);
+		expect(
+			resolveCookiesDbFromProfileOrRoots({
+				profile: stringifiedAllProfiles,
+				roots: [root],
+			}),
+		).toBe(stringifiedAllProfilesDb);
+		expect(resolveCookiesDbFromProfileOrRoots({ roots: [root] })).toBe(defaultDb);
+		expect(
+			resolveCookiesDbsFromProfileOrRoots({
+				profile: ALL_CHROMIUM_PROFILES,
+				roots: [root],
+			}).map((item) => item.dbPath),
+		).toEqual([defaultDb, workDb, stringifiedAllProfilesDb]);
+	});
+
+	it("uses the first root with Default when Chromium profile is omitted", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-default-root-"));
+		const firstRoot = path.join(dir, "Chrome");
+		const secondRoot = path.join(dir, "Brave");
+		const chromeDb = path.join(firstRoot, "Default", "Network", "Cookies");
+		const braveDb = path.join(secondRoot, "Default", "Network", "Cookies");
+		mkdirSync(path.dirname(chromeDb), { recursive: true });
+		mkdirSync(path.dirname(braveDb), { recursive: true });
+		writeFileSync(chromeDb, "", "utf8");
+		writeFileSync(braveDb, "", "utf8");
+
+		expect(resolveCookiesDbsFromProfileOrRoots({ roots: [firstRoot, secondRoot] })).toEqual([
+			{ dbPath: chromeDb, profile: "Default" },
+		]);
 	});
 
 	it("resolves linux Chromium DBs from XDG config roots and explicit paths", () => {

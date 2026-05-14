@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ALL_PROFILES } from "../src/index.js";
 import { getCookiesFromFirefox } from "../src/providers/firefoxSqlite.js";
 
 type SqliteRow = Record<string, unknown>;
@@ -209,6 +210,44 @@ describe("firefox sqlite provider", () => {
 		);
 
 		expect(res.cookies).toHaveLength(1);
+		expect(res.cookies[0]?.source?.profile).toBe("abc.default-release");
+	});
+
+	it("reads every Firefox profile when ALL_PROFILES is specified", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
+		const homeDir = path.join(dir, "home");
+		const profilesRoot = stubFirefoxProfilesRoot(homeDir);
+		const defaultRelease = path.join(profilesRoot, "abc.default-release");
+		const other = path.join(profilesRoot, "xyz.default");
+		mkdirSync(defaultRelease, { recursive: true });
+		mkdirSync(other, { recursive: true });
+		writeFileSync(path.join(defaultRelease, "cookies.sqlite"), "", "utf8");
+		writeFileSync(path.join(other, "cookies.sqlite"), "", "utf8");
+
+		nodeSqlite.rows = [
+			{
+				name: "sid",
+				value: "value",
+				host: ".chatgpt.com",
+				path: "/",
+				expiry: 9999999999,
+				isSecure: 1,
+				isHttpOnly: 1,
+				sameSite: 2,
+			},
+		];
+
+		const res = await getCookiesFromFirefox(
+			{ profile: ALL_PROFILES, includeExpired: true },
+			["https://chatgpt.com/"],
+			null,
+		);
+
+		expect(
+			res.cookies
+				.map((cookie) => cookie.source?.profile)
+				.sort((a, b) => String(a).localeCompare(String(b))),
+		).toEqual(["abc.default-release", "xyz.default"]);
 	});
 
 	it("handles unreadable profile roots gracefully", async () => {

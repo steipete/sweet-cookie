@@ -17,8 +17,12 @@ describe("chrome sqlite (linux) provider", () => {
 			getLinuxChromeSafeStoragePassword,
 		}));
 		vi.doMock("../src/providers/chromium/linuxPaths.js", () => ({
-			resolveChromiumCookiesDbLinux: () =>
-				"/home/test/.config/BraveSoftware/Brave-Browser/Default/Cookies",
+			resolveChromiumCookiesDbsLinux: () => [
+				{
+					dbPath: "/home/test/.config/BraveSoftware/Brave-Browser/Default/Cookies",
+					profile: "Default",
+				},
+			],
 		}));
 		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
 			getCookiesFromChromeSqliteDb,

@@ -20,6 +20,7 @@ const edgeCapture = vi.hoisted<CaptureState>(() => ({ lastOptions: null }));
 const chromeCapture = vi.hoisted<CaptureState>(() => ({ lastOptions: null }));
 const safariCapture = vi.hoisted<CaptureState>(() => ({ lastOptions: null }));
 const nodeSqlite = vi.hoisted<NodeSqliteState>(() => ({ rows: [], shouldThrow: false }));
+const allChromiumProfilesSymbol = vi.hoisted(() => Symbol("test.ALL_CHROMIUM_PROFILES"));
 
 vi.mock("node:sqlite", () => {
 	class DatabaseSync {
@@ -227,6 +228,109 @@ describe("public API", () => {
 
 		expect(res.cookies.map((c) => c.name)).toEqual(["chrome"]);
 		expect(chromeCapture.lastOptions).toMatchObject({ chromiumBrowser: "arc" });
+	});
+
+	it("reads every selected Chrome profile as one backend result", async () => {
+		vi.resetModules();
+
+		const seenProfiles: unknown[] = [];
+		vi.doMock("../src/providers/chrome.js", () => ({
+			getCookiesFromChrome: async (options: { profile?: string }) => {
+				seenProfiles.push(options.profile);
+				return {
+					cookies: [
+						{
+							name: options.profile === "Work" ? "work" : "personal",
+							value: "1",
+							domain: "chatgpt.com",
+							path: "/",
+							secure: true,
+						},
+					],
+					warnings: [],
+				};
+			},
+		}));
+
+		const { getCookies } = await import("../src/index.js");
+		const res = await getCookies({
+			url: "https://chatgpt.com/",
+			browsers: ["chrome"],
+			chromeProfile: ["Personal", "Work"],
+			includeExpired: true,
+		});
+
+		expect(seenProfiles).toEqual(["Personal", "Work"]);
+		expect(res.cookies.map((c) => c.name).sort()).toEqual(["personal", "work"]);
+	});
+
+	it("keeps same-name cookies from different selected profiles", async () => {
+		vi.resetModules();
+
+		vi.doMock("../src/providers/chrome.js", () => ({
+			getCookiesFromChrome: async (options: { profile?: string }) => ({
+				cookies: [
+					{
+						name: "sid",
+						value: options.profile === "Work" ? "work-value" : "personal-value",
+						domain: "chatgpt.com",
+						path: "/",
+						source: { browser: "chrome", profile: options.profile },
+					},
+				],
+				warnings: [],
+			}),
+		}));
+
+		const { getCookies } = await import("../src/index.js");
+		const res = await getCookies({
+			url: "https://chatgpt.com/",
+			browsers: ["chrome"],
+			chromeProfile: ["Personal", "Work"],
+		});
+
+		expect(res.cookies.map((c) => c.value).sort()).toEqual(["personal-value", "work-value"]);
+	});
+
+	it("uses ALL_PROFILES as the explicit all-profile selector", async () => {
+		vi.resetModules();
+
+		const seenProfiles: unknown[] = [];
+		vi.doMock("../src/providers/chromium/paths.js", () => ({
+			ALL_CHROMIUM_PROFILES: allChromiumProfilesSymbol,
+		}));
+		vi.doMock("../src/providers/chrome.js", () => ({
+			getCookiesFromChrome: async (options: { profile?: unknown }) => {
+				seenProfiles.push(options.profile);
+				return {
+					cookies: [
+						{
+							name:
+								options.profile === allChromiumProfilesSymbol ? "auto" : String(options.profile),
+							value: "1",
+							domain: "chatgpt.com",
+							path: "/",
+						},
+					],
+					warnings: [],
+				};
+			},
+		}));
+
+		const { ALL_PROFILES, getCookies } = await import("../src/index.js");
+		const stringifiedAllProfiles = String(ALL_PROFILES);
+		await getCookies({
+			url: "https://chatgpt.com/",
+			browsers: ["chrome"],
+			chromeProfile: stringifiedAllProfiles,
+		});
+		await getCookies({
+			url: "https://chatgpt.com/",
+			browsers: ["chrome"],
+			chromeProfile: ALL_PROFILES,
+		});
+
+		expect(seenProfiles).toEqual([stringifiedAllProfiles, allChromiumProfilesSymbol]);
 	});
 
 	it("passes Safari-specific options through to the safari provider", async () => {
