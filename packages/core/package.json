@@ -1,6 +1,6 @@
 {
 	"name": "@steipete/sweet-cookie",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Inline-first browser cookie extraction for local tooling (no native addons).",
 	"homepage": "https://github.com/steipete/sweet-cookie#readme",
 	"bugs": {
