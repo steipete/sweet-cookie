@@ -1,7 +1,7 @@
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from "./chromeSqlite/crypto.js";
 import { getLinuxChromiumSafeStoragePassword } from "./chromeSqlite/linuxKeyring.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
-import { resolveChromiumCookiesDbLinux } from "./chromium/linuxPaths.js";
+import { resolveChromiumCookiesDbsLinux } from "./chromium/linuxPaths.js";
 export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistNames) {
     const args = {
         configDirName: "microsoft-edge",
@@ -9,8 +9,8 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
     if (options.profile !== undefined) {
         args.profile = options.profile;
     }
-    const dbPath = resolveChromiumCookiesDbLinux(args);
-    if (!dbPath) {
+    const dbs = resolveChromiumCookiesDbsLinux(args);
+    if (!dbs.length) {
         return { cookies: [], warnings: ["Edge cookies database not found."] };
     }
     const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
@@ -38,20 +38,26 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
         }
         return null;
     };
-    const dbOptions = {
-        dbPath,
-    };
-    if (options.profile) {
-        dbOptions.profile = options.profile;
+    const warnings = [...keyringWarnings];
+    const cookies = [];
+    for (const db of dbs) {
+        const dbOptions = { dbPath: db.dbPath };
+        if (db.profile !== undefined) {
+            dbOptions.profile = db.profile;
+        }
+        if (db.storeId !== undefined) {
+            dbOptions.storeId = db.storeId;
+        }
+        if (options.includeExpired !== undefined) {
+            dbOptions.includeExpired = options.includeExpired;
+        }
+        if (options.debug !== undefined) {
+            dbOptions.debug = options.debug;
+        }
+        const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
+        warnings.push(...result.warnings);
+        cookies.push(...result.cookies);
     }
-    if (options.includeExpired !== undefined) {
-        dbOptions.includeExpired = options.includeExpired;
-    }
-    if (options.debug !== undefined) {
-        dbOptions.debug = options.debug;
-    }
-    const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-    result.warnings.unshift(...keyringWarnings);
-    return result;
+    return { cookies, warnings };
 }
 //# sourceMappingURL=edgeSqliteLinux.js.map

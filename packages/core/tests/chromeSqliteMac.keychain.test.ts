@@ -15,8 +15,12 @@ describe("chrome sqlite (mac) keychain selection", () => {
 			readKeychainGenericPasswordFirst,
 		}));
 		vi.doMock("../src/providers/chromium/paths.js", () => ({
-			resolveCookiesDbFromProfileOrRoots: () =>
-				"/Users/test/Library/Application Support/Google/Chrome/Default/Cookies",
+			resolveCookiesDbsFromProfileOrRoots: () => [
+				{
+					dbPath: "/Users/test/Library/Application Support/Google/Chrome/Default/Cookies",
+					profile: "Default",
+				},
+			],
 		}));
 		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
 			getCookiesFromChromeSqliteDb,
@@ -57,8 +61,12 @@ describe("chrome sqlite (mac) keychain selection", () => {
 			readKeychainGenericPasswordFirst,
 		}));
 		vi.doMock("../src/providers/chromium/paths.js", () => ({
-			resolveCookiesDbFromProfileOrRoots: () =>
-				"/Users/test/Library/Application Support/Google/Chrome/Default/Cookies",
+			resolveCookiesDbsFromProfileOrRoots: () => [
+				{
+					dbPath: "/Users/test/Library/Application Support/Google/Chrome/Default/Cookies",
+					profile: "Default",
+				},
+			],
 		}));
 		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
 			getCookiesFromChromeSqliteDb,
@@ -95,8 +103,13 @@ describe("chrome sqlite (mac) keychain selection", () => {
 			readKeychainGenericPasswordFirst,
 		}));
 		vi.doMock("../src/providers/chromium/paths.js", () => ({
-			resolveCookiesDbFromProfileOrRoots: () =>
-				"/Users/test/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies",
+			resolveCookiesDbsFromProfileOrRoots: () => [
+				{
+					dbPath:
+						"/Users/test/Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies",
+					profile: "Default",
+				},
+			],
 		}));
 		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
 			getCookiesFromChromeSqliteDb,
@@ -127,15 +140,18 @@ describe("chrome sqlite (mac) keychain selection", () => {
 			.fn()
 			.mockResolvedValue({ ok: true, password: "pw" });
 		const getCookiesFromChromeSqliteDb = vi.fn().mockResolvedValue({ cookies: [], warnings: [] });
-		const resolveCookiesDbFromProfileOrRoots = vi
-			.fn()
-			.mockReturnValue("/Users/test/Library/Application Support/Arc/User Data/Default/Cookies");
+		const resolveCookiesDbsFromProfileOrRoots = vi.fn().mockReturnValue([
+			{
+				dbPath: "/Users/test/Library/Application Support/Arc/User Data/Default/Cookies",
+				profile: "Default",
+			},
+		]);
 
 		vi.doMock("../src/providers/chromium/macosKeychain.js", () => ({
 			readKeychainGenericPasswordFirst,
 		}));
 		vi.doMock("../src/providers/chromium/paths.js", () => ({
-			resolveCookiesDbFromProfileOrRoots,
+			resolveCookiesDbsFromProfileOrRoots,
 		}));
 		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
 			getCookiesFromChromeSqliteDb,
@@ -153,7 +169,7 @@ describe("chrome sqlite (mac) keychain selection", () => {
 			null,
 		);
 
-		expect(resolveCookiesDbFromProfileOrRoots).toHaveBeenCalledWith(
+		expect(resolveCookiesDbsFromProfileOrRoots).toHaveBeenCalledWith(
 			expect.objectContaining({
 				profile: "Default",
 				roots: [expect.stringContaining("/Library/Application Support/Arc/User Data")],
@@ -176,15 +192,18 @@ describe("chrome sqlite (mac) keychain selection", () => {
 			.fn()
 			.mockResolvedValue({ ok: true, password: "pw" });
 		const getCookiesFromChromeSqliteDb = vi.fn().mockResolvedValue({ cookies: [], warnings: [] });
-		const resolveCookiesDbFromProfileOrRoots = vi
-			.fn()
-			.mockReturnValue("/Users/test/Library/Application Support/Google/Chrome/Default/Cookies");
+		const resolveCookiesDbsFromProfileOrRoots = vi.fn().mockReturnValue([
+			{
+				dbPath: "/Users/test/Library/Application Support/Google/Chrome/Default/Cookies",
+				profile: "Default",
+			},
+		]);
 
 		vi.doMock("../src/providers/chromium/macosKeychain.js", () => ({
 			readKeychainGenericPasswordFirst,
 		}));
 		vi.doMock("../src/providers/chromium/paths.js", () => ({
-			resolveCookiesDbFromProfileOrRoots,
+			resolveCookiesDbsFromProfileOrRoots,
 		}));
 		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
 			getCookiesFromChromeSqliteDb,
@@ -198,7 +217,7 @@ describe("chrome sqlite (mac) keychain selection", () => {
 
 		await getCookiesFromChromeSqliteMac({ profile: "Default" }, ["https://example.com"], null);
 
-		expect(resolveCookiesDbFromProfileOrRoots).toHaveBeenCalledWith(
+		expect(resolveCookiesDbsFromProfileOrRoots).toHaveBeenCalledWith(
 			expect.objectContaining({
 				profile: "Default",
 				roots: [

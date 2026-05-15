@@ -3,7 +3,7 @@ import path from "node:path";
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from "./chromeSqlite/crypto.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
 import { readKeychainGenericPasswordFirst } from "./chromium/macosKeychain.js";
-import { resolveCookiesDbFromProfileOrRoots } from "./chromium/paths.js";
+import { resolveCookiesDbsFromProfileOrRoots, } from "./chromium/paths.js";
 const DEFAULT_CHROMIUM_KEYCHAIN = {
     account: "Chrome",
     services: ["Chrome Safe Storage"],
@@ -44,50 +44,57 @@ const CHROMIUM_BROWSER_TARGETS = [
     },
 ];
 export async function getCookiesFromChromeSqliteMac(options, origins, allowlistNames) {
-    const dbPath = resolveChromeCookiesDb(options.profile, options.chromiumBrowser);
-    if (!dbPath) {
+    const dbs = resolveChromeCookiesDbs(options.profile, options.chromiumBrowser);
+    if (!dbs.length) {
         return { cookies: [], warnings: ["Chrome cookies database not found."] };
     }
     const warnings = [];
-    // On macOS, Chromium stores its "Safe Storage" secret in Keychain.
-    // `security find-generic-password` is stable and avoids any native Node keychain modules.
-    const keychain = resolveKeychainForDb(dbPath);
-    const passwordResult = await readKeychainGenericPasswordFirst({
-        account: keychain.account,
-        services: keychain.services,
-        timeoutMs: options.timeoutMs ?? 3_000,
-        label: keychain.label,
-    });
-    if (!passwordResult.ok) {
-        warnings.push(passwordResult.error);
-        return { cookies: [], warnings };
+    const cookies = [];
+    for (const db of dbs) {
+        // On macOS, Chromium stores its "Safe Storage" secret in Keychain.
+        // `security find-generic-password` is stable and avoids any native Node keychain modules.
+        const keychain = resolveKeychainForDb(db.dbPath);
+        const passwordResult = await readKeychainGenericPasswordFirst({
+            account: keychain.account,
+            services: keychain.services,
+            timeoutMs: options.timeoutMs ?? 3_000,
+            label: keychain.label,
+        });
+        if (!passwordResult.ok) {
+            warnings.push(passwordResult.error);
+            continue;
+        }
+        const chromePassword = passwordResult.password.trim();
+        if (!chromePassword) {
+            warnings.push(`macOS Keychain returned an empty ${keychain.label} password.`);
+            continue;
+        }
+        // Chromium uses PBKDF2(password, "saltysalt", 1003, 16, sha1) for AES-128-CBC cookie values on macOS.
+        const key = deriveAes128CbcKeyFromPassword(chromePassword, { iterations: 1003 });
+        const decrypt = (encryptedValue, opts) => decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
+            stripHashPrefix: opts.stripHashPrefix,
+            treatUnknownPrefixAsPlaintext: true,
+        });
+        const dbOptions = {
+            dbPath: db.dbPath,
+        };
+        if (db.profile !== undefined) {
+            dbOptions.profile = db.profile;
+        }
+        if (db.storeId !== undefined) {
+            dbOptions.storeId = db.storeId;
+        }
+        if (options.includeExpired !== undefined) {
+            dbOptions.includeExpired = options.includeExpired;
+        }
+        if (options.debug !== undefined) {
+            dbOptions.debug = options.debug;
+        }
+        const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
+        warnings.push(...result.warnings);
+        cookies.push(...result.cookies);
     }
-    const chromePassword = passwordResult.password.trim();
-    if (!chromePassword) {
-        warnings.push(`macOS Keychain returned an empty ${keychain.label} password.`);
-        return { cookies: [], warnings };
-    }
-    // Chromium uses PBKDF2(password, "saltysalt", 1003, 16, sha1) for AES-128-CBC cookie values on macOS.
-    const key = deriveAes128CbcKeyFromPassword(chromePassword, { iterations: 1003 });
-    const decrypt = (encryptedValue, opts) => decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
-        stripHashPrefix: opts.stripHashPrefix,
-        treatUnknownPrefixAsPlaintext: true,
-    });
-    const dbOptions = {
-        dbPath,
-    };
-    if (options.profile) {
-        dbOptions.profile = options.profile;
-    }
-    if (options.includeExpired !== undefined) {
-        dbOptions.includeExpired = options.includeExpired;
-    }
-    if (options.debug !== undefined) {
-        dbOptions.debug = options.debug;
-    }
-    const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-    result.warnings.unshift(...warnings);
-    return result;
+    return { cookies, warnings };
 }
 function resolveKeychainForDb(dbPath) {
     const lower = dbPath.toLowerCase();
@@ -98,7 +105,7 @@ function resolveKeychainForDb(dbPath) {
     }
     return DEFAULT_CHROMIUM_KEYCHAIN;
 }
-function resolveChromeCookiesDb(profile, chromiumBrowser) {
+function resolveChromeCookiesDbs(profile, chromiumBrowser) {
     const home = homedir();
     const selectedTargets = chromiumBrowser
         ? CHROMIUM_BROWSER_TARGETS.filter((target) => target.id === chromiumBrowser)
@@ -111,6 +118,9 @@ function resolveChromeCookiesDb(profile, chromiumBrowser) {
     if (profile !== undefined) {
         args.profile = profile;
     }
-    return resolveCookiesDbFromProfileOrRoots(args);
+    return resolveCookiesDbsFromProfileOrRoots(args).map((db) => {
+        const target = selectedTargets.find((candidate) => db.dbPath.toLowerCase().includes(candidate.root.toLowerCase()));
+        return target ? { ...db, storeId: target.id } : db;
+    });
 }
 //# sourceMappingURL=chromeSqliteMac.js.map

@@ -89,14 +89,43 @@ const { cookies } = await getCookies({
 Pick a specific profile or pass an explicit Chrome cookie DB path:
 
 ```ts
+import { ALL_PROFILES, getCookies } from "@steipete/sweet-cookie";
+
 await getCookies({
 	url: "https://example.com/",
 	browsers: ["chrome"], // or ['edge']
-	chromeProfile: "Default", // or '/path/to/.../Network/Cookies'
+	chromeProfile: "Work", // examples: "Profile 2" dir, "Work" display name, "/path/to/.../Network/Cookies" DB
+});
+```
+
+Read multiple profiles by passing an array:
+
+```ts
+await getCookies({
+	url: "https://example.com/",
+	browsers: ["chrome"],
+	chromeProfile: ["Default", "Profile 2"],
+});
+```
+
+Discover all local profiles with the exported `ALL_PROFILES` sentinel:
+
+```ts
+await getCookies({
+	url: "https://example.com/",
+	browsers: ["chrome"],
+	chromeProfile: ALL_PROFILES,
 });
 ```
 
 `profile` is a shared alias for `chromeProfile` / `edgeProfile` when you want one override for Chromium backends.
+
+Profile selector behavior:
+
+- Chrome / Edge: when omitted, use the browser default profile (`Default`). A string can be a profile directory (`"Profile 2"`), a Chromium `Local State` display name (`"Work"`), a profile directory path, or a `Cookies` DB path. Use an array to read several selected profiles. Use `ALL_PROFILES` to discover every local profile for that backend.
+- Firefox: when omitted, use `default-release` when present, otherwise the first discovered profile. A string can be a profile name, profile directory path, or `cookies.sqlite` path. Use an array for several selected profiles. Use `ALL_PROFILES` to discover every local Firefox profile.
+- Safari: there is no profile selector. `safariCookiesFile` is only a path override, or an array of path overrides, for `Cookies.binarycookies`.
+- Use `ALL_PROFILES` when you want Sweet Cookie to discover every local profile for a supported browser.
 
 Target Brave on Linux or another Chromium-family profile by passing the actual profile dir / DB path:
 
@@ -162,12 +191,12 @@ If any inline source yields cookies, Sweet Cookie returns that result immediatel
 - `browsers`: source order (`chrome`, `edge`, `firefox`, `safari`).
 - default browser order: `chrome`, `safari`, `firefox`.
 - `mode`: `merge` (default) or `first`.
-- `profile`: shared alias for `chromeProfile` / `edgeProfile`.
-- `chromeProfile`: Chrome profile name/path (profile dir or `Cookies` DB file).
+- `profile`: shared alias for `chromeProfile` / `edgeProfile`; accepts a string, string array, or `ALL_PROFILES`. When omitted, Chromium backends keep their default profile behavior.
+- `chromeProfile`: Chrome profile name/display name/path (profile dir or `Cookies` DB file); accepts a string, string array, or `ALL_PROFILES`.
 - `chromiumBrowser`: macOS-only explicit Chromium-family target for the `chrome` backend (`chrome|brave|arc|chromium`).
-- `edgeProfile`: Edge profile name/path (profile dir or `Cookies` DB file).
-- `firefoxProfile`: Firefox profile name/path.
-- `safariCookiesFile`: override path to `Cookies.binarycookies` (tests/debug).
+- `edgeProfile`: Edge profile name/display name/path (profile dir or `Cookies` DB file); accepts a string, string array, or `ALL_PROFILES`.
+- `firefoxProfile`: Firefox profile name/path; accepts a string, string array, or `ALL_PROFILES`.
+- `safariCookiesFile`: override path to `Cookies.binarycookies` (tests/debug); accepts a string or string array.
 - Inline sources: `inlineCookiesJson`, `inlineCookiesBase64`, `inlineCookiesFile`.
 - `timeoutMs`: max time for OS helper calls (keychain/keyring/DPAPI).
 - `includeExpired`: include expired cookies in results.

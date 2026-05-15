@@ -3,10 +3,11 @@ import { getCookiesFromChromeSqliteLinux } from "./chromeSqliteLinux.js";
 import type { ChromiumBrowserId } from "./chromeSqliteMac.js";
 import { getCookiesFromChromeSqliteMac } from "./chromeSqliteMac.js";
 import { getCookiesFromChromeSqliteWindows } from "./chromeSqliteWindows.js";
+import type { ChromiumProfileSelector } from "./chromium/paths.js";
 
 export async function getCookiesFromChrome(
 	options: {
-		profile?: string;
+		profile?: ChromiumProfileSelector;
 		timeoutMs?: number;
 		includeExpired?: boolean;
 		debug?: boolean;

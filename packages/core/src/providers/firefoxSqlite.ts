@@ -2,23 +2,49 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync } from "node
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
-import type { Cookie, CookieSameSite, GetCookiesResult } from "../types.js";
+import { ALL_PROFILES, type Cookie, type CookieSameSite, type GetCookiesResult } from "../types.js";
 import { hostMatchesCookieDomain } from "../util/hostMatch.js";
 import { importNodeSqlite } from "../util/nodeSqlite.js";
 import { isBunRuntime } from "../util/runtime.js";
 
 export async function getCookiesFromFirefox(
+	options: { profile?: string | typeof ALL_PROFILES; includeExpired?: boolean },
+	origins: string[],
+	allowlistNames: Set<string> | null,
+): Promise<GetCookiesResult> {
+	const warnings: string[] = [];
+	const dbPaths = resolveFirefoxCookiesDbs(options.profile);
+	if (!dbPaths.length) {
+		warnings.push("Firefox cookies database not found.");
+		return { cookies: [], warnings };
+	}
+
+	const cookies: Cookie[] = [];
+	for (const db of dbPaths) {
+		const dbOptions: { profile?: string; includeExpired?: boolean } = {};
+		if (db.profile !== undefined) {
+			dbOptions.profile = db.profile;
+		}
+		if (options.includeExpired !== undefined) {
+			dbOptions.includeExpired = options.includeExpired;
+		}
+		const result = await getCookiesFromFirefoxDb(db.dbPath, dbOptions, origins, allowlistNames);
+		warnings.push(...result.warnings);
+		cookies.push(...result.cookies);
+	}
+	return {
+		cookies: dedupeCookies(cookies, { includeProfile: options.profile === ALL_PROFILES }),
+		warnings,
+	};
+}
+
+async function getCookiesFromFirefoxDb(
+	dbPath: string,
 	options: { profile?: string; includeExpired?: boolean },
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {
 	const warnings: string[] = [];
-	const dbPath = resolveFirefoxCookiesDb(options.profile);
-	if (!dbPath) {
-		warnings.push("Firefox cookies database not found.");
-		return { cookies: [], warnings };
-	}
-
 	const tempDir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
 	const tempDbPath = path.join(tempDir, "cookies.sqlite");
 	try {
@@ -185,7 +211,9 @@ function collectFirefoxCookiesFromRows(
 	return cookies;
 }
 
-function resolveFirefoxCookiesDb(profile?: string): string | null {
+function resolveFirefoxCookiesDbs(
+	profile?: string | typeof ALL_PROFILES,
+): Array<{ dbPath: string; profile?: string }> {
 	const home = homedir();
 	const appData = process.env["APPDATA"];
 	// Per the XDG Base Directory Specification, fall back to ~/.config when
@@ -215,38 +243,53 @@ function resolveFirefoxCookiesDb(profile?: string): string | null {
 						: []
 					: [];
 
-	if (profile && looksLikePath(profile)) {
+	if (typeof profile === "string" && looksLikePath(profile)) {
 		const candidate = profile.endsWith("cookies.sqlite")
 			? profile
 			: path.join(profile, "cookies.sqlite");
-		return existsSync(candidate) ? candidate : null;
+		if (!existsSync(candidate)) {
+			return [];
+		}
+		const resolved: { dbPath: string; profile?: string } = { dbPath: candidate };
+		const profileName = profile.endsWith("cookies.sqlite")
+			? path.basename(path.dirname(profile))
+			: path.basename(profile);
+		if (profileName) {
+			resolved.profile = profileName;
+		}
+		return [resolved];
 	}
 
+	const resolved: Array<{ dbPath: string; profile?: string }> = [];
 	for (const root of roots) {
 		if (!root || !existsSync(root)) {
 			continue;
 		}
-		if (profile) {
+		if (typeof profile === "string") {
 			const candidate = path.join(root, profile, "cookies.sqlite");
 			if (existsSync(candidate)) {
-				return candidate;
+				return [{ dbPath: candidate, profile }];
 			}
 			continue;
 		}
 
-		const entries = safeReaddir(root);
-		const defaultRelease = entries.find((e) => e.includes("default-release"));
-		const picked = defaultRelease ?? entries[0];
-		if (!picked) {
-			continue;
-		}
-		const candidate = path.join(root, picked, "cookies.sqlite");
-		if (existsSync(candidate)) {
-			return candidate;
+		const entries =
+			profile === ALL_PROFILES
+				? safeReaddir(root)
+				: prioritizeFirefoxDefaultProfile(safeReaddir(root));
+		for (const entry of entries) {
+			const candidate = path.join(root, entry, "cookies.sqlite");
+			if (existsSync(candidate)) {
+				const item = { dbPath: candidate, profile: entry };
+				if (profile !== ALL_PROFILES) {
+					return [item];
+				}
+				resolved.push(item);
+			}
 		}
 	}
 
-	return null;
+	return dedupeFirefoxDbs(resolved);
 }
 
 function safeReaddir(dir: string): string[] {
@@ -257,6 +300,12 @@ function safeReaddir(dir: string): string[] {
 	} catch {
 		return [];
 	}
+}
+
+function prioritizeFirefoxDefaultProfile(entries: string[]): string[] {
+	const defaultRelease = entries.find((entry) => entry.includes("default-release"));
+	const picked = defaultRelease ?? entries[0];
+	return picked ? [picked] : [];
 }
 
 function looksLikePath(value: string): boolean {
@@ -343,13 +392,29 @@ function hostMatchesAny(hosts: string[], cookieHost: string): boolean {
 	return hosts.some((host) => hostMatchesCookieDomain(host, cookieDomain));
 }
 
-function dedupeCookies(cookies: Cookie[]): Cookie[] {
+function dedupeCookies(cookies: Cookie[], options: { includeProfile?: boolean } = {}): Cookie[] {
 	const merged = new Map<string, Cookie>();
 	for (const cookie of cookies) {
-		const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}`;
+		const profile = options.includeProfile ? (cookie.source?.profile ?? "") : "";
+		const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profile}`;
 		if (!merged.has(key)) {
 			merged.set(key, cookie);
 		}
 	}
 	return Array.from(merged.values());
+}
+
+function dedupeFirefoxDbs(
+	dbs: Array<{ dbPath: string; profile?: string }>,
+): Array<{ dbPath: string; profile?: string }> {
+	const seen = new Set<string>();
+	const deduped: Array<{ dbPath: string; profile?: string }> = [];
+	for (const db of dbs) {
+		if (seen.has(db.dbPath)) {
+			continue;
+		}
+		seen.add(db.dbPath);
+		deduped.push(db);
+	}
+	return deduped;
 }

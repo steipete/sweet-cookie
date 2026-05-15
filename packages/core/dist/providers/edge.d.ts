@@ -1,6 +1,7 @@
 import type { GetCookiesResult } from "../types.js";
+import type { ChromiumProfileSelector } from "./chromium/paths.js";
 export declare function getCookiesFromEdge(options: {
-    profile?: string;
+    profile?: ChromiumProfileSelector;
     timeoutMs?: number;
     includeExpired?: boolean;
     debug?: boolean;

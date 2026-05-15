@@ -1,7 +1,8 @@
 import type { GetCookiesResult } from "../types.js";
 import type { ChromiumBrowserId } from "./chromeSqliteMac.js";
+import type { ChromiumProfileSelector } from "./chromium/paths.js";
 export declare function getCookiesFromChrome(options: {
-    profile?: string;
+    profile?: ChromiumProfileSelector;
     timeoutMs?: number;
     includeExpired?: boolean;
     debug?: boolean;

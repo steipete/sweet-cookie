@@ -44,6 +44,10 @@ export interface Cookie {
 }
 
 export type CookieMode = "merge" | "first";
+export const ALL_PROFILES = Symbol("sweet-cookie.ALL_PROFILES");
+export type AllProfiles = typeof ALL_PROFILES;
+export type ProfileType = string | string[] | AllProfiles;
+export type PathType = string | string[];
 
 export interface GetCookiesOptions {
 	/**
@@ -64,32 +68,39 @@ export interface GetCookiesOptions {
 	 */
 	browsers?: BrowserName[];
 	/** Alias for chromeProfile (common case). */
-	profile?: string;
+	profile?: ProfileType;
 	/**
 	 * Chrome/Chromium profile selector.
 	 *
 	 * Accepted values:
 	 * - profile directory name like `Default` / `Profile 2`
+	 * - profile display name from Chromium `Local State` (for example `Work`)
 	 * - a path to a profile directory
 	 * - a path to a cookie DB file (`.../Network/Cookies` or `.../Cookies`)
+	 * - array of any values above
+	 * - `ALL_PROFILES` sentinel to discover all local profiles
 	 */
-	chromeProfile?: string;
+	chromeProfile?: ProfileType;
 	/**
 	 * Microsoft Edge profile selector.
 	 *
 	 * Accepted values:
 	 * - profile directory name like `Default` / `Profile 2`
+	 * - profile display name from Chromium `Local State` (for example `Work`)
 	 * - a path to a profile directory
 	 * - a path to a cookie DB file (`.../Network/Cookies` or `.../Cookies`)
+	 * - array of any values above
+	 * - `ALL_PROFILES` sentinel to discover all local profiles
 	 */
-	edgeProfile?: string;
+	edgeProfile?: ProfileType;
 	/**
 	 * Firefox profile selector (profile name or filesystem path).
 	 * If a directory is provided, `cookies.sqlite` is resolved within it.
+	 * Accepts `ALL_PROFILES` to discover all local profiles.
 	 */
-	firefoxProfile?: string;
+	firefoxProfile?: ProfileType;
 	/** Override path to Safari Cookies.binarycookies (for tests / debugging). */
-	safariCookiesFile?: string;
+	safariCookiesFile?: PathType;
 	/**
 	 * Specific Chromium browser to target on macOS.
 	 * When set, only that browser's keychain entry/root will be tried (avoids multiple password prompts).

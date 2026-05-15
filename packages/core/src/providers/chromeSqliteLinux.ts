@@ -1,4 +1,4 @@
-import type { GetCookiesResult } from "../types.js";
+import type { Cookie, GetCookiesResult } from "../types.js";
 import {
 	decryptChromiumAes128CbcCookieValue,
 	deriveAes128CbcKeyFromPassword,
@@ -8,74 +8,89 @@ import {
 	getLinuxChromeSafeStoragePassword,
 } from "./chromeSqlite/linuxKeyring.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
-import { resolveChromiumCookiesDbLinux } from "./chromium/linuxPaths.js";
+import { resolveChromiumCookiesDbsLinux } from "./chromium/linuxPaths.js";
+import type { ChromiumProfileSelector } from "./chromium/paths.js";
 
 export async function getCookiesFromChromeSqliteLinux(
-	options: { profile?: string; includeExpired?: boolean; debug?: boolean },
+	options: { profile?: ChromiumProfileSelector; includeExpired?: boolean; debug?: boolean },
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {
-	const args: Parameters<typeof resolveChromiumCookiesDbLinux>[0] = {
+	const args: Parameters<typeof resolveChromiumCookiesDbsLinux>[0] = {
 		configDirName: "google-chrome",
 	};
 	if (options.profile !== undefined) {
 		args.profile = options.profile;
 	}
-	const dbPath = resolveChromiumCookiesDbLinux(args);
-	if (!dbPath) {
+	const dbs = resolveChromiumCookiesDbsLinux(args);
+	if (!dbs.length) {
 		return { cookies: [], warnings: ["Chrome cookies database not found."] };
 	}
 
-	const isBrave =
-		dbPath.toLowerCase().includes("bravesoftware") ||
-		dbPath.toLowerCase().includes("brave-browser") ||
-		dbPath.toLowerCase().includes("brave browser");
-	const { password, warnings: keyringWarnings } = isBrave
-		? await getLinuxBraveSafeStoragePassword()
-		: await getLinuxChromeSafeStoragePassword();
+	const warnings: string[] = [];
+	const cookies: Cookie[] = [];
+	for (const db of dbs) {
+		const isBrave =
+			db.dbPath.toLowerCase().includes("bravesoftware") ||
+			db.dbPath.toLowerCase().includes("brave-browser") ||
+			db.dbPath.toLowerCase().includes("brave browser");
+		const { password, warnings: keyringWarnings } = isBrave
+			? await getLinuxBraveSafeStoragePassword()
+			: await getLinuxChromeSafeStoragePassword();
+		warnings.push(...keyringWarnings);
 
-	// Linux uses multiple schemes depending on distro/keyring availability.
-	// - v10 often uses the hard-coded "peanuts" password
-	// - v11 uses "Chrome Safe Storage" from the keyring (may be empty/unavailable)
-	const v10Key = deriveAes128CbcKeyFromPassword("peanuts", { iterations: 1 });
-	const emptyKey = deriveAes128CbcKeyFromPassword("", { iterations: 1 });
-	const v11Key = deriveAes128CbcKeyFromPassword(password, { iterations: 1 });
+		// Linux uses multiple schemes depending on distro/keyring availability.
+		// - v10 often uses the hard-coded "peanuts" password
+		// - v11 uses "Chrome Safe Storage" from the keyring (may be empty/unavailable)
+		const v10Key = deriveAes128CbcKeyFromPassword("peanuts", { iterations: 1 });
+		const emptyKey = deriveAes128CbcKeyFromPassword("", { iterations: 1 });
+		const v11Key = deriveAes128CbcKeyFromPassword(password, { iterations: 1 });
 
-	const decrypt = (
-		encryptedValue: Uint8Array,
-		opts: { stripHashPrefix: boolean },
-	): string | null => {
-		const prefix = Buffer.from(encryptedValue).subarray(0, 3).toString("utf8");
-		if (prefix === "v10") {
-			return decryptChromiumAes128CbcCookieValue(encryptedValue, [v10Key, emptyKey], {
-				stripHashPrefix: opts.stripHashPrefix,
-				treatUnknownPrefixAsPlaintext: false,
-			});
-		}
-		if (prefix === "v11") {
-			return decryptChromiumAes128CbcCookieValue(encryptedValue, [v11Key, emptyKey], {
-				stripHashPrefix: opts.stripHashPrefix,
-				treatUnknownPrefixAsPlaintext: false,
-			});
-		}
-		return null;
-	};
-
-	const dbOptions: { dbPath: string; profile?: string; includeExpired?: boolean; debug?: boolean } =
-		{
-			dbPath,
+		const decrypt = (
+			encryptedValue: Uint8Array,
+			opts: { stripHashPrefix: boolean },
+		): string | null => {
+			const prefix = Buffer.from(encryptedValue).subarray(0, 3).toString("utf8");
+			if (prefix === "v10") {
+				return decryptChromiumAes128CbcCookieValue(encryptedValue, [v10Key, emptyKey], {
+					stripHashPrefix: opts.stripHashPrefix,
+					treatUnknownPrefixAsPlaintext: false,
+				});
+			}
+			if (prefix === "v11") {
+				return decryptChromiumAes128CbcCookieValue(encryptedValue, [v11Key, emptyKey], {
+					stripHashPrefix: opts.stripHashPrefix,
+					treatUnknownPrefixAsPlaintext: false,
+				});
+			}
+			return null;
 		};
-	if (options.profile) {
-		dbOptions.profile = options.profile;
-	}
-	if (options.includeExpired !== undefined) {
-		dbOptions.includeExpired = options.includeExpired;
-	}
-	if (options.debug !== undefined) {
-		dbOptions.debug = options.debug;
-	}
 
-	const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-	result.warnings.unshift(...keyringWarnings);
-	return result;
+		const dbOptions: {
+			dbPath: string;
+			profile?: string;
+			storeId?: string;
+			includeExpired?: boolean;
+			debug?: boolean;
+		} = {
+			dbPath: db.dbPath,
+		};
+		if (db.profile !== undefined) {
+			dbOptions.profile = db.profile;
+		}
+		if (db.storeId !== undefined) {
+			dbOptions.storeId = db.storeId;
+		}
+		if (options.includeExpired !== undefined) {
+			dbOptions.includeExpired = options.includeExpired;
+		}
+		if (options.debug !== undefined) {
+			dbOptions.debug = options.debug;
+		}
+
+		const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
+		warnings.push(...result.warnings);
+		cookies.push(...result.cookies);
+	}
+	return { cookies, warnings };
 }
