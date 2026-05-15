@@ -3,10 +3,10 @@ import path from "node:path";
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from "./chromeSqlite/crypto.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
 import { readKeychainGenericPasswordFirst } from "./chromium/macosKeychain.js";
-import { resolveCookiesDbFromProfileOrRoots } from "./chromium/paths.js";
+import { resolveCookiesDbsFromProfileOrRoots, } from "./chromium/paths.js";
 export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNames) {
-    const dbPath = resolveEdgeCookiesDb(options.profile);
-    if (!dbPath) {
+    const dbs = resolveEdgeCookiesDbs(options.profile);
+    if (!dbs.length) {
         return { cookies: [], warnings: ["Edge cookies database not found."] };
     }
     const warnings = [];
@@ -33,23 +33,25 @@ export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNam
         stripHashPrefix: opts.stripHashPrefix,
         treatUnknownPrefixAsPlaintext: true,
     });
-    const dbOptions = {
-        dbPath,
-    };
-    if (options.profile) {
-        dbOptions.profile = options.profile;
+    const cookies = [];
+    for (const db of dbs) {
+        const dbOptions = { dbPath: db.dbPath };
+        if (db.profile !== undefined) {
+            dbOptions.profile = db.profile;
+        }
+        if (options.includeExpired !== undefined) {
+            dbOptions.includeExpired = options.includeExpired;
+        }
+        if (options.debug !== undefined) {
+            dbOptions.debug = options.debug;
+        }
+        const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
+        warnings.push(...result.warnings);
+        cookies.push(...result.cookies);
     }
-    if (options.includeExpired !== undefined) {
-        dbOptions.includeExpired = options.includeExpired;
-    }
-    if (options.debug !== undefined) {
-        dbOptions.debug = options.debug;
-    }
-    const result = await getCookiesFromChromeSqliteDb(dbOptions, origins, allowlistNames, decrypt);
-    result.warnings.unshift(...warnings);
-    return result;
+    return { cookies, warnings };
 }
-function resolveEdgeCookiesDb(profile) {
+function resolveEdgeCookiesDbs(profile) {
     const home = homedir();
     /* c8 ignore next */
     const roots = process.platform === "darwin"
@@ -59,6 +61,6 @@ function resolveEdgeCookiesDb(profile) {
     if (profile !== undefined) {
         args.profile = profile;
     }
-    return resolveCookiesDbFromProfileOrRoots(args);
+    return resolveCookiesDbsFromProfileOrRoots(args);
 }
 //# sourceMappingURL=edgeSqliteMac.js.map

@@ -1,3 +1,4 @@
 export { getCookies, toCookieHeader } from "./public.js";
-export type { BrowserName, Cookie, CookieHeaderOptions, CookieMode, CookieSameSite, GetCookiesOptions, GetCookiesResult, } from "./types.js";
+export { ALL_PROFILES } from "./types.js";
+export type { AllProfiles, BrowserName, Cookie, CookieHeaderOptions, CookieMode, CookieSameSite, GetCookiesOptions, GetCookiesResult, ProfileType, } from "./types.js";
 //# sourceMappingURL=index.d.ts.map

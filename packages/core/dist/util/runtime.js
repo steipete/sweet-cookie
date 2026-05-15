@@ -4,6 +4,6 @@ export function isBunRuntime() {
         return false;
     }
     const bunVersion = process.versions.bun;
-    return Boolean(typeof process.versions === "object" && typeof bunVersion === "string");
+    return typeof process.versions === "object" && typeof bunVersion === "string";
 }
 //# sourceMappingURL=runtime.js.map

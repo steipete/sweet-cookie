@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Support selecting multiple browser profiles and all discovered profiles for Chromium, Edge, Firefox, and Safari cookie reads. (`#30`, thanks `@jag-k`)
+
 ### Fixed
 
 - Enable `node:sqlite` `readBigInts` on Node 22+ so current Chromium cookie
