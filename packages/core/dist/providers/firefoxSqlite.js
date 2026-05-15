@@ -221,7 +221,11 @@ function resolveFirefoxCookiesDbs(profile) {
         for (const entry of entries) {
             const candidate = path.join(root, entry, "cookies.sqlite");
             if (existsSync(candidate)) {
-                resolved.push({ dbPath: candidate, profile: entry });
+                const item = { dbPath: candidate, profile: entry };
+                if (profile !== ALL_PROFILES) {
+                    return [item];
+                }
+                resolved.push(item);
             }
         }
     }
