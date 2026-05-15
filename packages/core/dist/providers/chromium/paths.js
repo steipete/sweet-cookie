@@ -28,13 +28,15 @@ export function resolveCookiesDbsFromProfileOrRoots(options) {
         const expanded = expandPath(options.profile);
         const stat = safeStat(expanded);
         if (stat?.isFile()) {
-            return [withOptionalProfile(expanded, profileNameFromDbPath(expanded))];
+            return [
+                withOptionalProfile(expanded, profileNameFromDbPath(expanded), storeIdFromDbPath(expanded)),
+            ];
         }
         candidates.push(path.join(expanded, "Cookies"));
         candidates.push(path.join(expanded, "Network", "Cookies"));
         for (const candidate of candidates) {
             if (existsSync(candidate)) {
-                return [withOptionalProfile(candidate, path.basename(expanded))];
+                return [withOptionalProfile(candidate, path.basename(expanded), expanded)];
             }
         }
         return [];
@@ -53,6 +55,7 @@ export function resolveCookiesDbsFromProfileOrRoots(options) {
         return [];
     }
     const resolved = [];
+    const includeStoreId = options.roots.length > 1;
     for (const root of options.roots) {
         if (!existsSync(root)) {
             continue;
@@ -63,7 +66,11 @@ export function resolveCookiesDbsFromProfileOrRoots(options) {
         for (const profileDir of profileDirs) {
             const dbPath = resolveCookiesDbInProfileDir(path.join(root, profileDir), options.cookieStoreOrder);
             if (dbPath) {
-                resolved.push({ dbPath, profile: profileDir });
+                const item = { dbPath, profile: profileDir };
+                if (includeStoreId) {
+                    item.storeId = root;
+                }
+                resolved.push(item);
             }
         }
     }
@@ -147,6 +154,10 @@ export function profileNameFromDbPath(dbPath) {
     }
     return parent || undefined;
 }
+export function storeIdFromDbPath(dbPath) {
+    const parent = path.basename(path.dirname(dbPath));
+    return parent === "Network" ? path.dirname(path.dirname(dbPath)) : path.dirname(dbPath);
+}
 function dedupeResolvedDbs(resolved) {
     const seen = new Set();
     const deduped = [];
@@ -159,10 +170,13 @@ function dedupeResolvedDbs(resolved) {
     }
     return deduped;
 }
-function withOptionalProfile(dbPath, profile) {
+function withOptionalProfile(dbPath, profile, storeId) {
     const resolved = { dbPath };
     if (profile !== undefined) {
         resolved.profile = profile;
+    }
+    if (storeId !== undefined) {
+        resolved.storeId = storeId;
     }
     return resolved;
 }

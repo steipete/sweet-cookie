@@ -13,5 +13,6 @@ export declare function resolveChromiumPathsWindowsAll(options: {
     dbPath: string;
     userDataDir: string;
     profile?: string;
+    storeId?: string;
 }>;
 //# sourceMappingURL=windowsPaths.d.ts.map

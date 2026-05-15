@@ -59,16 +59,7 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 	}
 
 	const merged = new Map<string, Cookie>();
-	const tryAdd = (cookie: Cookie, options: { includeProfileInKey?: boolean } = {}) => {
-		// Dedupe by name+domain+path (a common stable identity for HTTP cookies).
-		const domain = cookie.domain ?? "";
-		const pathValue = cookie.path ?? "";
-		const profile = options.includeProfileInKey ? (cookie.source?.profile ?? "") : "";
-		const key = `${cookie.name}|${domain}|${pathValue}|${profile}`;
-		if (!merged.has(key)) {
-			merged.set(key, cookie);
-		}
-	};
+	const mergedPrimaryKeys = new Set<string>();
 
 	for (const browser of browsers) {
 		let result: GetCookiesResult;
@@ -170,12 +161,42 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 			return { cookies: result.cookies, warnings };
 		}
 
+		const primaryKeysBeforeBrowser = new Set(mergedPrimaryKeys);
+		const primaryKeysFromBrowser = new Set<string>();
 		for (const cookie of result.cookies) {
-			tryAdd(cookie, { includeProfileInKey: includeProfileInMergeKey });
+			const primaryKey = mergeCookieKey(cookie, {
+				includeProfileInKey: includeProfileInMergeKey,
+				includeStoreInKey: false,
+			});
+			primaryKeysFromBrowser.add(primaryKey);
+			if (primaryKeysBeforeBrowser.has(primaryKey)) {
+				continue;
+			}
+			const storageKey = mergeCookieKey(cookie, {
+				includeProfileInKey: includeProfileInMergeKey,
+				includeStoreInKey: true,
+			});
+			if (!merged.has(storageKey)) {
+				merged.set(storageKey, cookie);
+			}
+		}
+		for (const key of primaryKeysFromBrowser) {
+			mergedPrimaryKeys.add(key);
 		}
 	}
 
 	return { cookies: Array.from(merged.values()), warnings };
+}
+
+function mergeCookieKey(
+	cookie: Cookie,
+	options: { includeProfileInKey: boolean; includeStoreInKey: boolean },
+): string {
+	const domain = cookie.domain ?? "";
+	const pathValue = cookie.path ?? "";
+	const profile = options.includeProfileInKey ? (cookie.source?.profile ?? "") : "";
+	const storeId = options.includeStoreInKey ? (cookie.source?.storeId ?? "") : "";
+	return `${cookie.name}|${domain}|${pathValue}|${profile}|${storeId}`;
 }
 
 async function collectProfileResults(
@@ -192,7 +213,8 @@ async function collectProfileResults(
 		warnings.push(...result.warnings);
 		for (const cookie of result.cookies) {
 			const profileKey = includeProfileInKey ? (cookie.source?.profile ?? "") : "";
-			const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profileKey}`;
+			const storeKey = cookie.source?.storeId ?? "";
+			const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profileKey}|${storeKey}`;
 			if (!merged.has(key)) {
 				merged.set(key, cookie);
 			}

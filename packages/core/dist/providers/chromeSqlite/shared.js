@@ -40,6 +40,9 @@ export async function getCookiesFromChromeSqliteDb(options, origins, allowlistNa
         if (options.profile) {
             collectOptions.profile = options.profile;
         }
+        if (options.storeId) {
+            collectOptions.storeId = options.storeId;
+        }
         if (options.includeExpired !== undefined) {
             collectOptions.includeExpired = options.includeExpired;
         }
@@ -114,6 +117,9 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
         const source = { browser: "chrome" };
         if (options.profile) {
             source.profile = options.profile;
+        }
+        if (options.storeId) {
+            source.storeId = options.storeId;
         }
         const cookie = {
             name,

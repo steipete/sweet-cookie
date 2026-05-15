@@ -39,6 +39,9 @@ export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNam
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;
         }
+        if (db.storeId !== undefined) {
+            dbOptions.storeId = db.storeId;
+        }
         if (options.includeExpired !== undefined) {
             dbOptions.includeExpired = options.includeExpired;
         }

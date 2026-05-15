@@ -164,7 +164,7 @@ describe("chromium path helpers", () => {
 				configDirName: "ignored",
 				profile: dbPath,
 			}),
-		).toEqual([{ dbPath, profile: "Profile 4" }]);
+		).toEqual([{ dbPath, profile: "Profile 4", storeId: path.dirname(path.dirname(dbPath)) }]);
 	});
 
 	it("resolves Windows Chromium DBs and Local State fallbacks", () => {
@@ -215,6 +215,8 @@ describe("chromium path helpers", () => {
 				localAppDataVendorPath: path.join("unused"),
 				profile: dbPath,
 			}),
-		).toEqual([{ dbPath, userDataDir, profile: "Profile 9" }]);
+		).toEqual([
+			{ dbPath, userDataDir, profile: "Profile 9", storeId: path.dirname(path.dirname(dbPath)) },
+		]);
 	});
 });

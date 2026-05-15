@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { expandPath, looksLikePath, profileNameFromDbPath, resolveCookiesDbsFromProfileOrRoots, } from "./paths.js";
+import { expandPath, looksLikePath, profileNameFromDbPath, resolveCookiesDbsFromProfileOrRoots, storeIdFromDbPath, } from "./paths.js";
 export function resolveChromiumCookiesDbLinux(options) {
     return resolveChromiumCookiesDbsLinux(options)[0]?.dbPath ?? null;
 }
@@ -13,15 +13,16 @@ export function resolveChromiumCookiesDbsLinux(options) {
         const candidate = expandPath(options.profile);
         if (candidate.endsWith("Cookies") && existsSync(candidate)) {
             const profile = profileNameFromDbPath(candidate);
-            return profile ? [{ dbPath: candidate, profile }] : [{ dbPath: candidate }];
+            const storeId = storeIdFromDbPath(candidate);
+            return profile ? [{ dbPath: candidate, profile, storeId }] : [{ dbPath: candidate, storeId }];
         }
         const direct = path.join(candidate, "Cookies");
         if (existsSync(direct)) {
-            return [{ dbPath: direct, profile: path.basename(candidate) }];
+            return [{ dbPath: direct, profile: path.basename(candidate), storeId: candidate }];
         }
         const network = path.join(candidate, "Network", "Cookies");
         if (existsSync(network)) {
-            return [{ dbPath: network, profile: path.basename(candidate) }];
+            return [{ dbPath: network, profile: path.basename(candidate), storeId: candidate }];
         }
         return [];
     }

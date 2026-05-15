@@ -51,6 +51,9 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;
         }
+        if (db.storeId !== undefined) {
+            dbOptions.storeId = db.storeId;
+        }
         if (options.includeExpired !== undefined) {
             dbOptions.includeExpired = options.includeExpired;
         }

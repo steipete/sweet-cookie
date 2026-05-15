@@ -5,6 +5,7 @@ import path from "node:path";
 export type ResolvedCookiesDb = {
 	dbPath: string;
 	profile?: string;
+	storeId?: string;
 };
 
 export const ALL_CHROMIUM_PROFILES = Symbol("sweet-cookie.ALL_CHROMIUM_PROFILES");
@@ -49,13 +50,15 @@ export function resolveCookiesDbsFromProfileOrRoots(options: {
 		const expanded = expandPath(options.profile);
 		const stat = safeStat(expanded);
 		if (stat?.isFile()) {
-			return [withOptionalProfile(expanded, profileNameFromDbPath(expanded))];
+			return [
+				withOptionalProfile(expanded, profileNameFromDbPath(expanded), storeIdFromDbPath(expanded)),
+			];
 		}
 		candidates.push(path.join(expanded, "Cookies"));
 		candidates.push(path.join(expanded, "Network", "Cookies"));
 		for (const candidate of candidates) {
 			if (existsSync(candidate)) {
-				return [withOptionalProfile(candidate, path.basename(expanded))];
+				return [withOptionalProfile(candidate, path.basename(expanded), expanded)];
 			}
 		}
 		return [];
@@ -79,6 +82,7 @@ export function resolveCookiesDbsFromProfileOrRoots(options: {
 	}
 
 	const resolved: ResolvedCookiesDb[] = [];
+	const includeStoreId = options.roots.length > 1;
 	for (const root of options.roots) {
 		if (!existsSync(root)) {
 			continue;
@@ -92,7 +96,11 @@ export function resolveCookiesDbsFromProfileOrRoots(options: {
 				options.cookieStoreOrder,
 			);
 			if (dbPath) {
-				resolved.push({ dbPath, profile: profileDir });
+				const item: ResolvedCookiesDb = { dbPath, profile: profileDir };
+				if (includeStoreId) {
+					item.storeId = root;
+				}
+				resolved.push(item);
 			}
 		}
 	}
@@ -186,6 +194,11 @@ export function profileNameFromDbPath(dbPath: string): string | undefined {
 	return parent || undefined;
 }
 
+export function storeIdFromDbPath(dbPath: string): string {
+	const parent = path.basename(path.dirname(dbPath));
+	return parent === "Network" ? path.dirname(path.dirname(dbPath)) : path.dirname(dbPath);
+}
+
 function dedupeResolvedDbs(resolved: ResolvedCookiesDb[]): ResolvedCookiesDb[] {
 	const seen = new Set<string>();
 	const deduped: ResolvedCookiesDb[] = [];
@@ -199,10 +212,17 @@ function dedupeResolvedDbs(resolved: ResolvedCookiesDb[]): ResolvedCookiesDb[] {
 	return deduped;
 }
 
-function withOptionalProfile(dbPath: string, profile: string | undefined): ResolvedCookiesDb {
+function withOptionalProfile(
+	dbPath: string,
+	profile: string | undefined,
+	storeId?: string,
+): ResolvedCookiesDb {
 	const resolved: ResolvedCookiesDb = { dbPath };
 	if (profile !== undefined) {
 		resolved.profile = profile;
+	}
+	if (storeId !== undefined) {
+		resolved.storeId = storeId;
 	}
 	return resolved;
 }

@@ -1,6 +1,7 @@
 export type ResolvedCookiesDb = {
     dbPath: string;
     profile?: string;
+    storeId?: string;
 };
 export declare const ALL_CHROMIUM_PROFILES: unique symbol;
 export type ChromiumProfileSelector = string | typeof ALL_CHROMIUM_PROFILES;
@@ -20,4 +21,5 @@ export declare function resolveCookiesDbsFromProfileOrRoots(options: {
     cookieStoreOrder?: "legacy-first" | "network-first";
 }): ResolvedCookiesDb[];
 export declare function profileNameFromDbPath(dbPath: string): string | undefined;
+export declare function storeIdFromDbPath(dbPath: string): string;
 //# sourceMappingURL=paths.d.ts.map

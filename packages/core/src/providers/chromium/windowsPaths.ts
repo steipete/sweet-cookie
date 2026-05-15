@@ -6,6 +6,7 @@ import {
 	looksLikePath,
 	profileNameFromDbPath,
 	resolveCookiesDbsFromProfileOrRoots,
+	storeIdFromDbPath,
 	type ChromiumProfileSelector,
 } from "./paths.js";
 
@@ -31,7 +32,7 @@ export function resolveChromiumPathsWindows(options: {
 export function resolveChromiumPathsWindowsAll(options: {
 	localAppDataVendorPath: string;
 	profile?: ChromiumProfileSelector;
-}): Array<{ dbPath: string; userDataDir: string; profile?: string }> {
+}): Array<{ dbPath: string; userDataDir: string; profile?: string; storeId?: string }> {
 	const localAppData = process.env["LOCALAPPDATA"];
 	const root = localAppData ? path.join(localAppData, options.localAppDataVendorPath) : null;
 
@@ -53,9 +54,10 @@ export function resolveChromiumPathsWindowsAll(options: {
 				return [];
 			}
 			const profile = profileNameFromDbPath(candidate);
+			const storeId = storeIdFromDbPath(candidate);
 			return profile
-				? [{ dbPath: candidate, userDataDir, profile }]
-				: [{ dbPath: candidate, userDataDir }];
+				? [{ dbPath: candidate, userDataDir, profile, storeId }]
+				: [{ dbPath: candidate, userDataDir, storeId }];
 		}
 		if (existsSync(path.join(expanded, "Local State"))) {
 			return [];
@@ -73,12 +75,15 @@ export function resolveChromiumPathsWindowsAll(options: {
 		args.profile = options.profile;
 	}
 	return resolveCookiesDbsFromProfileOrRoots(args).map((item) => {
-		const resolved: { dbPath: string; userDataDir: string; profile?: string } = {
+		const resolved: { dbPath: string; userDataDir: string; profile?: string; storeId?: string } = {
 			dbPath: item.dbPath,
 			userDataDir: root,
 		};
 		if (item.profile !== undefined) {
 			resolved.profile = item.profile;
+		}
+		if (item.storeId !== undefined) {
+			resolved.storeId = item.storeId;
 		}
 		return resolved;
 	});

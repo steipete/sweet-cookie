@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { expandPath, looksLikePath, profileNameFromDbPath, resolveCookiesDbsFromProfileOrRoots, } from "./paths.js";
+import { expandPath, looksLikePath, profileNameFromDbPath, resolveCookiesDbsFromProfileOrRoots, storeIdFromDbPath, } from "./paths.js";
 export function resolveChromiumPathsWindows(options) {
     const resolved = resolveChromiumPathsWindowsAll(options)[0];
     if (resolved) {
@@ -37,9 +37,10 @@ export function resolveChromiumPathsWindowsAll(options) {
                 return [];
             }
             const profile = profileNameFromDbPath(candidate);
+            const storeId = storeIdFromDbPath(candidate);
             return profile
-                ? [{ dbPath: candidate, userDataDir, profile }]
-                : [{ dbPath: candidate, userDataDir }];
+                ? [{ dbPath: candidate, userDataDir, profile, storeId }]
+                : [{ dbPath: candidate, userDataDir, storeId }];
         }
         if (existsSync(path.join(expanded, "Local State"))) {
             return [];
@@ -62,6 +63,9 @@ export function resolveChromiumPathsWindowsAll(options) {
         };
         if (item.profile !== undefined) {
             resolved.profile = item.profile;
+        }
+        if (item.storeId !== undefined) {
+            resolved.storeId = item.storeId;
         }
         return resolved;
     });

@@ -36,6 +36,9 @@ export async function getCookiesFromChromeSqliteWindows(options, origins, allowl
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;
         }
+        if (db.storeId !== undefined) {
+            dbOptions.storeId = db.storeId;
+        }
         if (options.includeExpired !== undefined) {
             dbOptions.includeExpired = options.includeExpired;
         }

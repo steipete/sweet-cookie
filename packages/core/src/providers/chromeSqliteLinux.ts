@@ -69,6 +69,7 @@ export async function getCookiesFromChromeSqliteLinux(
 		const dbOptions: {
 			dbPath: string;
 			profile?: string;
+			storeId?: string;
 			includeExpired?: boolean;
 			debug?: boolean;
 		} = {
@@ -76,6 +77,9 @@ export async function getCookiesFromChromeSqliteLinux(
 		};
 		if (db.profile !== undefined) {
 			dbOptions.profile = db.profile;
+		}
+		if (db.storeId !== undefined) {
+			dbOptions.storeId = db.storeId;
 		}
 		if (options.includeExpired !== undefined) {
 			dbOptions.includeExpired = options.includeExpired;

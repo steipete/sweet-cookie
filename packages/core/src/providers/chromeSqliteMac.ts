@@ -110,6 +110,7 @@ export async function getCookiesFromChromeSqliteMac(
 		const dbOptions: {
 			dbPath: string;
 			profile?: string;
+			storeId?: string;
 			includeExpired?: boolean;
 			debug?: boolean;
 		} = {
@@ -117,6 +118,9 @@ export async function getCookiesFromChromeSqliteMac(
 		};
 		if (db.profile !== undefined) {
 			dbOptions.profile = db.profile;
+		}
+		if (db.storeId !== undefined) {
+			dbOptions.storeId = db.storeId;
 		}
 		if (options.includeExpired !== undefined) {
 			dbOptions.includeExpired = options.includeExpired;
@@ -165,5 +169,10 @@ function resolveChromeCookiesDbs(
 	if (profile !== undefined) {
 		args.profile = profile;
 	}
-	return resolveCookiesDbsFromProfileOrRoots(args);
+	return resolveCookiesDbsFromProfileOrRoots(args).map((db) => {
+		const target = selectedTargets.find((candidate) =>
+			db.dbPath.toLowerCase().includes(candidate.root.toLowerCase()),
+		);
+		return target ? { ...db, storeId: target.id } : db;
+	});
 }

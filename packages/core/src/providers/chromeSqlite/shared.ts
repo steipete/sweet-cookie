@@ -22,7 +22,13 @@ type ChromeRow = {
 };
 
 export async function getCookiesFromChromeSqliteDb(
-	options: { dbPath: string; profile?: string; includeExpired?: boolean; debug?: boolean },
+	options: {
+		dbPath: string;
+		profile?: string;
+		storeId?: string;
+		includeExpired?: boolean;
+		debug?: boolean;
+	},
 	origins: string[],
 	allowlistNames: Set<string> | null,
 	decrypt: (encryptedValue: Uint8Array, options: { stripHashPrefix: boolean }) => string | null,
@@ -62,9 +68,12 @@ export async function getCookiesFromChromeSqliteDb(
 			return { cookies: [], warnings };
 		}
 
-		const collectOptions: { profile?: string; includeExpired?: boolean } = {};
+		const collectOptions: { profile?: string; storeId?: string; includeExpired?: boolean } = {};
 		if (options.profile) {
 			collectOptions.profile = options.profile;
+		}
+		if (options.storeId) {
+			collectOptions.storeId = options.storeId;
 		}
 		if (options.includeExpired !== undefined) {
 			collectOptions.includeExpired = options.includeExpired;
@@ -87,7 +96,7 @@ export async function getCookiesFromChromeSqliteDb(
 
 function collectChromeCookiesFromRows(
 	rows: ChromeRow[],
-	options: { profile?: string; includeExpired?: boolean },
+	options: { profile?: string; storeId?: string; includeExpired?: boolean },
 	hosts: string[],
 	allowlistNames: Set<string> | null,
 	decrypt: (encryptedValue: Uint8Array) => string | null,
@@ -168,6 +177,9 @@ function collectChromeCookiesFromRows(
 		const source: NonNullable<Cookie["source"]> = { browser: "chrome" };
 		if (options.profile) {
 			source.profile = options.profile;
+		}
+		if (options.storeId) {
+			source.storeId = options.storeId;
 		}
 
 		const cookie: Cookie = {
