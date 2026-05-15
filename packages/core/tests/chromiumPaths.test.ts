@@ -68,12 +68,7 @@ describe("chromium path helpers", () => {
 		const stringifiedAllProfiles = String(ALL_PROFILES);
 		const defaultDb = path.join(root, "Default", "Network", "Cookies");
 		const workDb = path.join(root, "Profile 1", "Network", "Cookies");
-		const stringifiedAllProfilesDb = path.join(
-			root,
-			stringifiedAllProfiles,
-			"Network",
-			"Cookies",
-		);
+		const stringifiedAllProfilesDb = path.join(root, stringifiedAllProfiles, "Network", "Cookies");
 		mkdirSync(path.dirname(defaultDb), { recursive: true });
 		mkdirSync(path.dirname(workDb), { recursive: true });
 		mkdirSync(path.dirname(stringifiedAllProfilesDb), { recursive: true });

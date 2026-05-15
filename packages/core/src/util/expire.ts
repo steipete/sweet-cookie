@@ -17,7 +17,7 @@ export function normalizeExpiration(expires?: number | bigint): number | undefin
 	if (!expires || Number.isNaN(expires)) {
 		return undefined;
 	}
-	const value = Number(expires);
+	const value = expires;
 	if (value <= 0) {
 		return undefined;
 	}
