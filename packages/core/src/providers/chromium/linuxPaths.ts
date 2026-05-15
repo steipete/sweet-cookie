@@ -5,6 +5,7 @@ import path from "node:path";
 import {
 	expandPath,
 	looksLikePath,
+	profileNameFromDbPath,
 	resolveCookiesDbsFromProfileOrRoots,
 	type ChromiumProfileSelector,
 	type ResolvedCookiesDb,
@@ -28,7 +29,8 @@ export function resolveChromiumCookiesDbsLinux(options: {
 	if (typeof options.profile === "string" && looksLikePath(options.profile)) {
 		const candidate = expandPath(options.profile);
 		if (candidate.endsWith("Cookies") && existsSync(candidate)) {
-			return [{ dbPath: candidate, profile: path.basename(path.dirname(candidate)) }];
+			const profile = profileNameFromDbPath(candidate);
+			return profile ? [{ dbPath: candidate, profile }] : [{ dbPath: candidate }];
 		}
 		const direct = path.join(candidate, "Cookies");
 		if (existsSync(direct)) {

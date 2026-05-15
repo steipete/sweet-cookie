@@ -4,6 +4,7 @@ import path from "node:path";
 import {
 	expandPath,
 	looksLikePath,
+	profileNameFromDbPath,
 	resolveCookiesDbsFromProfileOrRoots,
 	type ChromiumProfileSelector,
 } from "./paths.js";
@@ -48,9 +49,13 @@ export function resolveChromiumPathsWindowsAll(options: {
 				continue;
 			}
 			const userDataDir = findUserDataDir(candidate);
-			return userDataDir
-				? [{ dbPath: candidate, userDataDir, profile: path.basename(expanded) }]
-				: [];
+			if (!userDataDir) {
+				return [];
+			}
+			const profile = profileNameFromDbPath(candidate);
+			return profile
+				? [{ dbPath: candidate, userDataDir, profile }]
+				: [{ dbPath: candidate, userDataDir }];
 		}
 		if (existsSync(path.join(expanded, "Local State"))) {
 			return [];

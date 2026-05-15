@@ -169,7 +169,7 @@ function safeReaddir(dir: string): string[] {
 	}
 }
 
-function profileNameFromDbPath(dbPath: string): string | undefined {
+export function profileNameFromDbPath(dbPath: string): string | undefined {
 	const parent = path.basename(path.dirname(dbPath));
 	if (parent === "Network") {
 		return path.basename(path.dirname(path.dirname(dbPath)));

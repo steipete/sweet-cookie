@@ -4,7 +4,10 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveChromiumCookiesDbLinux } from "../src/providers/chromium/linuxPaths.js";
+import {
+	resolveChromiumCookiesDbLinux,
+	resolveChromiumCookiesDbsLinux,
+} from "../src/providers/chromium/linuxPaths.js";
 import {
 	ALL_CHROMIUM_PROFILES,
 	expandPath,
@@ -13,7 +16,10 @@ import {
 	resolveCookiesDbsFromProfileOrRoots,
 	safeStat,
 } from "../src/providers/chromium/paths.js";
-import { resolveChromiumPathsWindows } from "../src/providers/chromium/windowsPaths.js";
+import {
+	resolveChromiumPathsWindows,
+	resolveChromiumPathsWindowsAll,
+} from "../src/providers/chromium/windowsPaths.js";
 import { ALL_PROFILES } from "../src/types.js";
 
 describe("chromium path helpers", () => {
@@ -147,6 +153,20 @@ describe("chromium path helpers", () => {
 		).toBe(path.join(profileDir, "Network", "Cookies"));
 	});
 
+	it("derives Linux profile names from explicit Network/Cookies DB paths", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-explicit-db-"));
+		const dbPath = path.join(dir, "Profile 4", "Network", "Cookies");
+		mkdirSync(path.dirname(dbPath), { recursive: true });
+		writeFileSync(dbPath, "", "utf8");
+
+		expect(
+			resolveChromiumCookiesDbsLinux({
+				configDirName: "ignored",
+				profile: dbPath,
+			}),
+		).toEqual([{ dbPath, profile: "Profile 4" }]);
+	});
+
 	it("resolves Windows Chromium DBs and Local State fallbacks", () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-windows-paths-"));
 		vi.stubEnv("LOCALAPPDATA", dir);
@@ -178,5 +198,21 @@ describe("chromium path helpers", () => {
 				localAppDataVendorPath: path.join("Missing", "Chrome", "User Data"),
 			}),
 		).toEqual({ dbPath: null, userDataDir: path.join(dir, "Missing", "Chrome", "User Data") });
+	});
+
+	it("derives Windows profile names from explicit Network/Cookies DB paths", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-windows-explicit-db-"));
+		const userDataDir = path.join(dir, "Chrome", "User Data");
+		const dbPath = path.join(userDataDir, "Profile 9", "Network", "Cookies");
+		mkdirSync(path.dirname(dbPath), { recursive: true });
+		writeFileSync(dbPath, "", "utf8");
+		writeFileSync(path.join(userDataDir, "Local State"), "{}", "utf8");
+
+		expect(
+			resolveChromiumPathsWindowsAll({
+				localAppDataVendorPath: path.join("unused"),
+				profile: dbPath,
+			}),
+		).toEqual([{ dbPath, userDataDir, profile: "Profile 9" }]);
 	});
 });
