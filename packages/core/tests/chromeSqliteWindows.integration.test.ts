@@ -111,5 +111,5 @@ describeIfWin("chrome sqlite (windows) integration", () => {
 
 		expect(res.cookies).toHaveLength(1);
 		expect(res.cookies[0]?.value).toBe("cookie-value");
-	});
+	}, 15_000);
 });

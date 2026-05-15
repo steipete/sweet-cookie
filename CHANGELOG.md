@@ -5,6 +5,9 @@
 ### Added
 
 - Support selecting multiple browser profiles and all discovered profiles for Chromium, Edge, Firefox, and Safari cookie reads. (`#30`, thanks `@jag-k`)
+- Add a dependency-free `sweet-cookie` CLI for extracting local browser cookies by domain or URL, with JSON and `Cookie:` header output. (`#7`, thanks `@kuizuo`)
+
+## 0.3.0 - 2026-05-14
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 {
 	"name": "@steipete/sweet-cookie",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Inline-first browser cookie extraction for local tooling (no native addons).",
 	"homepage": "https://github.com/steipete/sweet-cookie#readme",
 	"bugs": {
@@ -12,6 +12,9 @@
 		"type": "git",
 		"url": "git+https://github.com/steipete/sweet-cookie.git",
 		"directory": "packages/core"
+	},
+	"bin": {
+		"sweet-cookie": "dist/cli.js"
 	},
 	"files": [
 		"dist",
@@ -25,6 +28,10 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./cli": {
+			"types": "./dist/cli.d.ts",
+			"import": "./dist/cli.js"
 		}
 	},
 	"publishConfig": {

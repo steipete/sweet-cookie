@@ -16,14 +16,14 @@
 		"typecheck": "pnpm -r typecheck"
 	},
 	"devDependencies": {
-		"@types/node": "^25.3.5",
-		"@typescript/native-preview": "7.0.0-dev.20260503.1",
-		"@vitest/coverage-v8": "^4.0.18",
-		"oxfmt": "^0.36.0",
-		"oxlint": "^1.51.0",
-		"oxlint-tsgolint": "^0.16.0",
-		"typescript": "^5.9.3",
-		"vitest": "^4.0.18"
+		"@types/node": "^25.8.0",
+		"@typescript/native-preview": "7.0.0-dev.20260514.1",
+		"@vitest/coverage-v8": "^4.1.6",
+		"oxfmt": "^0.49.0",
+		"oxlint": "^1.64.0",
+		"oxlint-tsgolint": "^0.22.1",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.6"
 	},
 	"packageManager": "pnpm@10.25.0",
 	"pnpm": {

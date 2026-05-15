@@ -15,6 +15,13 @@ Install:
 npm i @steipete/sweet-cookie
 ```
 
+CLI:
+
+```bash
+npx @steipete/sweet-cookie github.com
+npx @steipete/sweet-cookie github.com --browser chrome --format header
+```
+
 Usage:
 
 ```ts

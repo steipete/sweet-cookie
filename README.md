@@ -38,6 +38,16 @@ npm i @steipete/sweet-cookie
 # or: bun add @steipete/sweet-cookie
 ```
 
+## CLI usage
+
+```bash
+npx @steipete/sweet-cookie github.com
+npx @steipete/sweet-cookie github.com --browser chrome
+npx @steipete/sweet-cookie github.com --browser chrome --format header
+```
+
+The CLI accepts a domain or full URL, uses the same browser/profile/env behavior as `getCookies()`, and writes warnings to stderr.
+
 ## Install (repo/dev)
 
 ```bash
