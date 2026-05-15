@@ -65,7 +65,10 @@ export function resolveChromiumPathsWindowsAll(options: {
 	if (!root) {
 		return [];
 	}
-	const args: Parameters<typeof resolveCookiesDbsFromProfileOrRoots>[0] = { roots: [root] };
+	const args: Parameters<typeof resolveCookiesDbsFromProfileOrRoots>[0] = {
+		roots: [root],
+		cookieStoreOrder: "network-first",
+	};
 	if (options.profile !== undefined) {
 		args.profile = options.profile;
 	}

@@ -41,6 +41,7 @@ export function resolveCookiesDbFromProfileOrRoots(options: {
 export function resolveCookiesDbsFromProfileOrRoots(options: {
 	profile?: ChromiumProfileSelector;
 	roots: string[];
+	cookieStoreOrder?: "legacy-first" | "network-first";
 }): ResolvedCookiesDb[] {
 	const candidates: string[] = [];
 
@@ -66,7 +67,10 @@ export function resolveCookiesDbsFromProfileOrRoots(options: {
 			if (!existsSync(root)) {
 				continue;
 			}
-			const dbPath = resolveCookiesDbInProfileDir(path.join(root, "Default"));
+			const dbPath = resolveCookiesDbInProfileDir(
+				path.join(root, "Default"),
+				options.cookieStoreOrder,
+			);
 			if (dbPath) {
 				return [{ dbPath, profile: "Default" }];
 			}
@@ -83,7 +87,10 @@ export function resolveCookiesDbsFromProfileOrRoots(options: {
 			? resolveProfileDirNames(root, requestedProfile)
 			: discoverProfileDirNames(root);
 		for (const profileDir of profileDirs) {
-			const dbPath = resolveCookiesDbInProfileDir(path.join(root, profileDir));
+			const dbPath = resolveCookiesDbInProfileDir(
+				path.join(root, profileDir),
+				options.cookieStoreOrder,
+			);
 			if (dbPath) {
 				resolved.push({ dbPath, profile: profileDir });
 			}
@@ -146,11 +153,13 @@ function readChromiumProfileAliases(root: string): Map<string, string> {
 	}
 }
 
-function resolveCookiesDbInProfileDir(profileDir: string): string | null {
-	const candidates = [
-		path.join(profileDir, "Cookies"),
-		path.join(profileDir, "Network", "Cookies"),
-	];
+function resolveCookiesDbInProfileDir(
+	profileDir: string,
+	order: "legacy-first" | "network-first" = "legacy-first",
+): string | null {
+	const legacy = path.join(profileDir, "Cookies");
+	const network = path.join(profileDir, "Network", "Cookies");
+	const candidates = order === "network-first" ? [network, legacy] : [legacy, network];
 	for (const candidate of candidates) {
 		if (existsSync(candidate)) {
 			return candidate;

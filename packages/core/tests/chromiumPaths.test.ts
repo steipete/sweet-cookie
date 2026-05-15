@@ -173,8 +173,10 @@ describe("chromium path helpers", () => {
 
 		const root = path.join(dir, "Google", "Chrome", "User Data");
 		const dbPath = path.join(root, "Default", "Network", "Cookies");
+		const legacyDbPath = path.join(root, "Default", "Cookies");
 		mkdirSync(path.dirname(dbPath), { recursive: true });
 		writeFileSync(dbPath, "", "utf8");
+		writeFileSync(legacyDbPath, "", "utf8");
 		writeFileSync(path.join(root, "Local State"), "{}", "utf8");
 
 		expect(
