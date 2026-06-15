@@ -27,6 +27,9 @@ export async function getCookies(options) {
     const warnings = [];
     const url = options.url;
     const origins = normalizeOrigins(url, options.origins);
+    if (origins.length === 0) {
+        return { cookies: [], warnings };
+    }
     const names = normalizeNames(options.names);
     let browsers;
     if (Array.isArray(options.browsers) && options.browsers.length > 0) {

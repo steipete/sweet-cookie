@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Avoid crashes and fail closed for opaque target URLs such as `file://`, preventing unrelated cookies from being returned. (`#32`, thanks `@devYRPauli`)
+
 ## 0.4.0 - 2026-06-11
 
 ### Added

@@ -38,6 +38,9 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 	const warnings: string[] = [];
 	const url = options.url;
 	const origins = normalizeOrigins(url, options.origins);
+	if (origins.length === 0) {
+		return { cookies: [], warnings };
+	}
 	const names = normalizeNames(options.names);
 	let browsers: BrowserName[];
 	if (Array.isArray(options.browsers) && options.browsers.length > 0) {

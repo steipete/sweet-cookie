@@ -78,6 +78,17 @@ describe("public API", () => {
 		expect(res.cookies.map((c) => c.name)).toEqual(["inline"]);
 	});
 
+	it("fails closed when the target URL has no filterable origin", async () => {
+		const { getCookies } = await import("../src/index.js");
+		const res = await getCookies({
+			url: "file:///etc/hosts",
+			inlineCookiesJson: buildInlinePayload(),
+			browsers: ["chrome"],
+		});
+
+		expect(res).toEqual({ cookies: [], warnings: [] });
+	});
+
 	it("respects SWEET_COOKIE_BROWSERS env when browsers are not provided", async () => {
 		vi.resetModules();
 
