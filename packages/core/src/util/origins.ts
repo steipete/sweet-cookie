@@ -2,7 +2,9 @@ export function normalizeOrigins(url: string, extraOrigins?: string[]): string[]
 	const origins: string[] = [];
 	try {
 		const parsed = new URL(url);
-		origins.push(ensureTrailingSlash(parsed.origin));
+		if (parsed.origin !== "null") {
+			origins.push(ensureTrailingSlash(parsed.origin));
+		}
 	} catch {
 		// ignore
 	}
@@ -14,7 +16,9 @@ export function normalizeOrigins(url: string, extraOrigins?: string[]): string[]
 		}
 		try {
 			const parsed = new URL(trimmed);
-			origins.push(ensureTrailingSlash(parsed.origin));
+			if (parsed.origin !== "null") {
+				origins.push(ensureTrailingSlash(parsed.origin));
+			}
 		} catch {
 			// ignore malformed extras
 		}

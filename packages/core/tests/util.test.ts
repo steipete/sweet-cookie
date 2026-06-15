@@ -30,6 +30,14 @@ describe("util", () => {
 		expect(normalizeOrigins("not a url")).toEqual([]);
 	});
 
+	it("normalizeOrigins() drops opaque origins (file://, about:blank)", () => {
+		expect(normalizeOrigins("file:///etc/hosts")).toEqual([]);
+		expect(normalizeOrigins("about:blank")).toEqual([]);
+		expect(normalizeOrigins("https://example.com/", ["file:///other", "about:blank"])).toEqual([
+			"https://example.com/",
+		]);
+	});
+
 	it("normalizeExpiration() handles seconds/ms/chromium microseconds", () => {
 		expect(normalizeExpiration(undefined)).toBeUndefined();
 		expect(normalizeExpiration(0)).toBeUndefined();
