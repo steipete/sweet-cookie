@@ -44,13 +44,13 @@ export async function importNodeSqlite() {
     // Node currently emits an ExperimentalWarning when importing `node:sqlite`.
     // This is harmless noise for consumers of this library, so we silence only that specific warning.
     const originalEmitWarning = process.emitWarning.bind(process);
-    process.emitWarning = ((warning, ...args) => {
+    process.emitWarning = (warning, ...args) => {
         if (shouldSuppressSqliteExperimentalWarning(warning, args)) {
             return;
         }
         // @ts-expect-error - Node's overloads are awkward; preserve runtime behavior.
         return originalEmitWarning(warning, ...args);
-    });
+    };
     try {
         cached = await import("node:sqlite");
         return cached;

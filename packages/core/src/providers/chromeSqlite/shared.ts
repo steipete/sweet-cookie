@@ -312,7 +312,7 @@ async function readChromeRows(
 
 	const result = await queryNodeOrBun({ kind: sqliteKind, dbPath, sql });
 	if (result.ok) {
-		return { ok: true, rows: result.rows as ChromeRow[] };
+		return { ok: true, rows: result.rows };
 	}
 
 	// Intentionally strict: only support modern Chromium cookie DB schemas.

@@ -55,13 +55,13 @@ export async function importNodeSqlite(): Promise<NodeSqliteModule> {
 	// This is harmless noise for consumers of this library, so we silence only that specific warning.
 	const originalEmitWarning = process.emitWarning.bind(process);
 
-	process.emitWarning = ((warning: unknown, ...args: unknown[]) => {
+	process.emitWarning = (warning: unknown, ...args: unknown[]) => {
 		if (shouldSuppressSqliteExperimentalWarning(warning, args)) {
 			return;
 		}
 		// @ts-expect-error - Node's overloads are awkward; preserve runtime behavior.
 		return originalEmitWarning(warning, ...args);
-	}) as typeof process.emitWarning;
+	};
 
 	try {
 		cached = await import("node:sqlite");

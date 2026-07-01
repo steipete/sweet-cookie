@@ -2,5 +2,8 @@ packages:
   - "packages/*"
   - "apps/*"
 
+overrides:
+  esbuild: 0.28.1
+
 onlyBuiltDependencies:
   - esbuild

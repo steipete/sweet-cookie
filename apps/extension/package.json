@@ -8,6 +8,6 @@
 		"typecheck": "tsgo -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
-		"@types/chrome": "^0.1.43"
+		"@types/chrome": "^0.2.1"
 	}
 }
