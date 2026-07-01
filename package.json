@@ -16,7 +16,7 @@
 		"typecheck": "pnpm -r typecheck"
 	},
 	"devDependencies": {
-		"@types/node": "^26.0.1",
+		"@types/node": "^26.1.0",
 		"@typescript/native-preview": "7.0.0-dev.20260623.1",
 		"@vitest/coverage-v8": "^4.1.9",
 		"oxfmt": "^0.57.0",
