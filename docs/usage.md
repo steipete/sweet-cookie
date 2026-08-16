@@ -22,7 +22,7 @@ The CLI accepts a domain or full URL. It prints cookie output to stdout and prov
 | `--edge-profile <value>`       | Set an Edge profile name, directory, or cookie database path.                         |
 | `--firefox-profile <value>`    | Set a Firefox profile name, directory, or `cookies.sqlite` path.                      |
 | `--safari-cookies-file <path>` | Override the Safari `Cookies.binarycookies` path.                                     |
-| `--chromium-browser <name>`    | On macOS, target `chrome`, `brave`, `arc`, or `chromium`.                             |
+| `--chromium-browser <name>`    | On macOS, target `chrome`, `brave`, `arc`, `chromium`, or `dia`.                      |
 | `--mode <merge\|first>`        | Merge browser results or stop at the first backend with cookies. Defaults to `merge`. |
 | `--include-expired`            | Include expired cookies.                                                              |
 | `--timeout-ms <ms>`            | Set the timeout for operating-system helper calls.                                    |
@@ -74,7 +74,7 @@ const cookieHeader = toCookieHeader(cookies, { dedupeByName: true });
 | `mode`                | `merge` combines backends; `first` stops after the first backend with cookies.               |
 | `profile`             | Shared alias for `chromeProfile` and `edgeProfile`.                                          |
 | `chromeProfile`       | Chrome profile selector, selector array, or `ALL_PROFILES`.                                  |
-| `chromiumBrowser`     | On macOS, pin the Chrome backend to Chrome, Brave, Arc, or Chromium.                         |
+| `chromiumBrowser`     | On macOS, pin the Chrome backend to Chrome, Brave, Arc, Chromium, or Dia.                    |
 | `edgeProfile`         | Edge profile selector, selector array, or `ALL_PROFILES`.                                    |
 | `firefoxProfile`      | Firefox profile selector, selector array, or `ALL_PROFILES`.                                 |
 | `safariCookiesFile`   | Safari cookie-file override or array of overrides.                                           |
@@ -126,7 +126,7 @@ await getCookies({
 });
 ```
 
-On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`, or `chromium`. By default, the backend checks Google Chrome and Brave roots. On Linux and Windows, target Brave or another Chromium-family browser by passing its profile directory or cookie database through `chromeProfile`.
+On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`, `chromium`, or `dia`. By default, the backend checks Google Chrome and Brave roots. On Linux and Windows, target Brave or another Chromium-family browser by passing its profile directory or cookie database through `chromeProfile`.
 
 ## Browser and platform details
 

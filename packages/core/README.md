@@ -60,7 +60,7 @@ await getCookies({
 Notes:
 
 - `profile` is a shared alias for `chromeProfile` / `edgeProfile`.
-- `chromiumBrowser` pins the macOS `chrome` backend to `chrome`, `brave`, `arc`, or `chromium`.
+- `chromiumBrowser` pins the macOS `chrome` backend to `chrome`, `brave`, `arc`, `chromium`, or `dia`.
 - Inline payloads win first; otherwise local backends run in declared order.
 - On Linux/Windows, Brave and other Chromium-family profiles work via an explicit `chromeProfile` path.
 - `edgeProfile` falls back to `SWEET_COOKIE_CHROME_PROFILE` when `SWEET_COOKIE_EDGE_PROFILE` is unset.

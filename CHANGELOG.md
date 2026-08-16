@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Support the Dia browser (macOS) in the `chrome` backend via `chromiumBrowser: "dia"`.
+
 ## 0.4.1 - 2026-08-01
 
 ### Changed

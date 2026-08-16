@@ -42,6 +42,15 @@ const CHROMIUM_BROWSER_TARGETS = [
             label: "Chromium Safe Storage",
         },
     },
+    {
+        id: "dia",
+        root: "Dia/User Data",
+        keychain: {
+            account: "Dia",
+            services: ["Dia Safe Storage"],
+            label: "Dia Safe Storage",
+        },
+    },
 ];
 export async function getCookiesFromChromeSqliteMac(options, origins, allowlistNames) {
     const pathWarnings = new Set();

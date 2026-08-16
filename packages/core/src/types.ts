@@ -107,7 +107,7 @@ export interface GetCookiesOptions {
 	 * When omitted, the macOS `chrome` backend checks Chrome and Brave roots by default.
 	 * Only used when `browsers` includes 'chrome'.
 	 */
-	chromiumBrowser?: "chrome" | "brave" | "arc" | "chromium";
+	chromiumBrowser?: "chrome" | "brave" | "arc" | "chromium" | "dia";
 	/** Include expired cookies (default: false). */
 	includeExpired?: boolean;
 	/** Timeout for OS helper calls (keychain/keyring/DPAPI). */
