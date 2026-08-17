@@ -182,6 +182,9 @@ async function collectCookies(
 				continue;
 			}
 			const mapped = mapChromeCookie(cookie);
+			if (!mapped) {
+				continue;
+			}
 			const key = exportedCookieKey(mapped, cookie.storeId ?? "");
 			if (!merged.has(key)) {
 				merged.set(key, { ...mapped, domain: mapped.domain ?? new URL(origin).hostname });

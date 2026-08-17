@@ -12,7 +12,12 @@ export type ExportedCookie = {
 	sameSite?: SweetCookieSameSite;
 };
 
-export function mapChromeCookie(cookie: chrome.cookies.Cookie): ExportedCookie {
+export function mapChromeCookie(cookie: chrome.cookies.Cookie): ExportedCookie | null {
+	const partitionKey = (cookie as { partitionKey?: unknown }).partitionKey;
+	if (partitionKey !== undefined && partitionKey !== null) {
+		return null;
+	}
+
 	const result: ExportedCookie = {
 		name: cookie.name,
 		value: cookie.value,

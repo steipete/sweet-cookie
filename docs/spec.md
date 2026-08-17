@@ -197,11 +197,12 @@ Steps:
 1. Normalize origins (force trailing `/`, drop query/hash)
 2. For each origin:
    - Query `chrome.cookies.getAll({ url: origin })`
-3. Merge + dedupe:
+3. Exclude cookies with a `partitionKey`; the export format cannot preserve their isolation context
+4. Merge + dedupe:
    - key = `${cookie.name}|${cookie.domain}|${cookie.hostOnly}|${cookie.path}|${cookie.storeId}`
-4. Filter:
+5. Filter:
    - if allowlist is present: keep only matching cookie names
-5. Serialize:
+6. Serialize:
    - Map Chrome extension cookie fields to Sweet Cookie cookie fields:
      - `name`, `value`, `domain`, `hostOnly`, `path`
      - `secure`, `httpOnly`

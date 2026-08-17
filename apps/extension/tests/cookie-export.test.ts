@@ -18,21 +18,49 @@ function chromeCookie(overrides: Partial<chrome.cookies.Cookie> = {}): chrome.co
 	};
 }
 
+function exportedChromeCookie(
+	overrides: Partial<chrome.cookies.Cookie> = {},
+): NonNullable<ReturnType<typeof mapChromeCookie>> {
+	const mapped = mapChromeCookie(chromeCookie(overrides));
+	if (!mapped) {
+		throw new Error("unpartitioned cookies must be exported");
+	}
+	return mapped;
+}
+
 describe("extension cookie export", () => {
 	it("preserves explicit host-only scope", () => {
-		expect(mapChromeCookie(chromeCookie({ domain: "example.com", hostOnly: true }))).toMatchObject({
+		expect(exportedChromeCookie({ domain: "example.com", hostOnly: true })).toMatchObject({
 			domain: "example.com",
 			hostOnly: true,
 		});
-		expect(mapChromeCookie(chromeCookie({ hostOnly: false }))).toMatchObject({
+		expect(exportedChromeCookie({ hostOnly: false })).toMatchObject({
 			domain: "example.com",
 			hostOnly: false,
 		});
 	});
 
+	it("excludes cookies carrying partition provenance", () => {
+		for (const partitionKey of [
+			{},
+			{ topLevelSite: "https://example.com" },
+			{ hasCrossSiteAncestor: false, topLevelSite: "https://example.com" },
+		]) {
+			expect(mapChromeCookie(chromeCookie({ partitionKey }))).toBeNull();
+		}
+	});
+
+	it("keeps cookies without partition provenance", () => {
+		for (const partitionKey of [undefined, null]) {
+			const cookie = chromeCookie();
+			Reflect.set(cookie, "partitionKey", partitionKey);
+			expect(mapChromeCookie(cookie)).toMatchObject({ name: "sid", value: "value" });
+		}
+	});
+
 	it("does not dedupe host-only and domain cookies together", () => {
-		const hostCookie = mapChromeCookie(chromeCookie({ domain: "example.com", hostOnly: true }));
-		const domainCookie = mapChromeCookie(chromeCookie({ hostOnly: false }));
+		const hostCookie = exportedChromeCookie({ domain: "example.com", hostOnly: true });
+		const domainCookie = exportedChromeCookie({ hostOnly: false });
 
 		expect(exportedCookieKey(hostCookie, "0")).not.toBe(exportedCookieKey(domainCookie, "0"));
 	});
@@ -43,8 +71,8 @@ describe("extension cookie export", () => {
 				for (const path of ["/", "/account"]) {
 					for (const storeId of ["0", "profile-1"]) {
 						const shared = { domain, name, path, storeId };
-						const hostCookie = mapChromeCookie(chromeCookie({ ...shared, hostOnly: true }));
-						const domainCookie = mapChromeCookie(chromeCookie({ ...shared, hostOnly: false }));
+						const hostCookie = exportedChromeCookie({ ...shared, hostOnly: true });
+						const domainCookie = exportedChromeCookie({ ...shared, hostOnly: false });
 
 						expect(exportedCookieKey(hostCookie, storeId)).not.toBe(
 							exportedCookieKey(domainCookie, storeId),
