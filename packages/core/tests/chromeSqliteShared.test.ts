@@ -21,6 +21,9 @@ describe("chrome sqlite provider (shared)", () => {
 							if (sql.includes("FROM meta")) {
 								return [{ value: 24 }];
 							}
+							if (sql === "PRAGMA table_info(cookies);") {
+								return [{ name: "top_frame_site_key" }];
+							}
 							cookieSql = sql;
 							return [
 								{
@@ -81,7 +84,7 @@ describe("chrome sqlite provider (shared)", () => {
 			() => null,
 		);
 
-		expect(cookieSql).toContain("top_frame_site_key, has_cross_site_ancestor");
+		expect(cookieSql).toContain("top_frame_site_key FROM cookies");
 		expect(res.cookies.map(({ value, hostOnly }) => ({ value, hostOnly }))).toEqual([
 			{ value: "host-value", hostOnly: true },
 			{ value: "domain-value", hostOnly: false },
@@ -99,6 +102,63 @@ describe("chrome sqlite provider (shared)", () => {
 		expect(subdomainRes.cookies.map(({ value, hostOnly }) => ({ value, hostOnly }))).toEqual([
 			{ value: "domain-value", hostOnly: false },
 		]);
+	});
+
+	it("reads ordinary cookies when partition-provenance columns are absent", async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-chrome-shared-"));
+		const dbPath = path.join(dir, "Cookies");
+		writeFileSync(dbPath, "", "utf8");
+		let cookieSql = "";
+
+		vi.doMock("node:sqlite", () => {
+			class DatabaseSync {
+				prepare(sql: string) {
+					return {
+						all() {
+							if (sql.includes("FROM meta")) {
+								return [{ value: 24 }];
+							}
+							if (sql === "PRAGMA table_info(cookies);") {
+								return ["name", "value", "host_key", "path"].map((name) => ({ name }));
+							}
+							cookieSql = sql;
+							return [
+								{
+									name: "sid",
+									value: "value",
+									host_key: "example.com",
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: new Uint8Array(),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+							];
+						},
+					};
+				}
+				close() {}
+			}
+			return { DatabaseSync };
+		});
+
+		const { getCookiesFromChromeSqliteDb } =
+			await import("../src/providers/chromeSqlite/shared.js");
+		const res = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true },
+			["https://example.com/"],
+			null,
+			() => null,
+		);
+
+		expect(cookieSql).toContain("'' AS top_frame_site_key");
+		expect(res.cookies).toEqual([
+			expect.objectContaining({ name: "sid", value: "value", hostOnly: true }),
+		]);
+		expect(res.warnings).toEqual([]);
 	});
 
 	it("passes stripHashPrefix based on meta.version", async () => {

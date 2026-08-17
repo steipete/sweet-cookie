@@ -91,7 +91,7 @@ The exported TypeScript definitions in [`packages/core/src/types.ts`](../package
 
 Inline sources run before browser backends in this order: JSON, base64, then file. Sweet Cookie returns immediately when an inline source yields cookies. This avoids database locks, operating-system credential prompts, and platform-specific decryption.
 
-Without an inline result, the configured browser backends run in order. The default order is Chrome, Safari, then Firefox. `mode: "merge"` combines results while preserving the first backend's value for a cookie with the same name, domain, and path. `mode: "first"` returns the first backend result that contains cookies.
+Without an inline result, the configured browser backends run in order. The default order is Chrome, Safari, then Firefox. `mode: "merge"` combines results while preserving the first backend's value for a cookie with the same name, domain, host-only scope, and path. Host-only and domain cookies remain distinct. `mode: "first"` returns the first backend result that contains cookies.
 
 Local Chromium and Firefox reads copy the cookie database and its journal files to a temporary directory before querying. SQLite comes from `node:sqlite` on Node.js or `bun:sqlite` on Bun; the package has no native Node addon dependency.
 

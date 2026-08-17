@@ -48,10 +48,28 @@ async function getCookiesFromFirefoxDb(dbPath, options, origins, allowlistNames)
     const now = Math.floor(Date.now() / 1000);
     const where = buildHostWhereClause(hosts);
     const expiryClause = options.includeExpired ? "" : ` AND (expiry = 0 OR expiry > ${now})`;
-    const sql = `SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite, originAttributes, isPartitionedAttributeSet ` +
+    const bunRuntime = isBunRuntime();
+    const sqliteLabel = bunRuntime ? "bun:sqlite" : "node:sqlite";
+    const columnsSql = "PRAGMA table_info(moz_cookies);";
+    const columnsResult = bunRuntime
+        ? await queryFirefoxCookiesWithBunSqlite(tempDbPath, columnsSql)
+        : await queryFirefoxCookiesWithNodeSqlite(tempDbPath, columnsSql);
+    if (!columnsResult.ok) {
+        rmSync(tempDir, { recursive: true, force: true });
+        warnings.push(`${sqliteLabel} failed reading Firefox cookies: ${columnsResult.error}`);
+        return { cookies: [], warnings };
+    }
+    const columnNames = new Set(columnsResult.rows.flatMap((row) => (typeof row.name === "string" ? [row.name] : [])));
+    const originAttributesColumn = columnNames.has("originAttributes")
+        ? "originAttributes"
+        : "'' AS originAttributes";
+    const partitionedColumn = columnNames.has("isPartitionedAttributeSet")
+        ? "isPartitionedAttributeSet"
+        : "0 AS isPartitionedAttributeSet";
+    const sql = `SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite, ${originAttributesColumn}, ${partitionedColumn} ` +
         `FROM moz_cookies WHERE (${where})${expiryClause} ORDER BY expiry DESC;`;
     try {
-        if (isBunRuntime()) {
+        if (bunRuntime) {
             const bunResult = await queryFirefoxCookiesWithBunSqlite(tempDbPath, sql);
             if (!bunResult.ok) {
                 warnings.push(`bun:sqlite failed reading Firefox cookies: ${bunResult.error}`);

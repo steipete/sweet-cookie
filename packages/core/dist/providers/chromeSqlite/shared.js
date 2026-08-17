@@ -239,18 +239,31 @@ async function readChromeRows(dbPath, where) {
         ? "CAST(expires_utc AS TEXT) AS expires_utc"
         : "expires_utc";
     const expiresOrder = needsTextExpires ? "cookies.expires_utc" : "expires_utc";
+    const columnsResult = await queryNodeOrBun({
+        kind: sqliteKind,
+        dbPath,
+        sql: "PRAGMA table_info(cookies);",
+    });
+    if (!columnsResult.ok) {
+        return {
+            ok: false,
+            error: `${sqliteLabel} failed reading Chrome cookies: ${columnsResult.error}`,
+        };
+    }
+    const columnNames = new Set(columnsResult.rows.flatMap((row) => (typeof row["name"] === "string" ? [row["name"]] : [])));
+    const partitionKeyColumn = columnNames.has("top_frame_site_key")
+        ? "top_frame_site_key"
+        : "'' AS top_frame_site_key";
     const sql = `SELECT name, value, host_key, path, ${expiresColumn}, samesite, encrypted_value, ` +
-        `is_secure AS is_secure, is_httponly AS is_httponly, top_frame_site_key, has_cross_site_ancestor ` +
+        `is_secure AS is_secure, is_httponly AS is_httponly, ${partitionKeyColumn} ` +
         `FROM cookies WHERE (${where}) ORDER BY ${expiresOrder} DESC;`;
     const result = await queryNodeOrBun({ kind: sqliteKind, dbPath, sql });
     if (result.ok) {
         return { ok: true, rows: result.rows };
     }
-    // Intentionally strict: only support modern Chromium cookie DB schemas.
-    // If this fails, assume the local Chrome/Chromium is too old or uses a non-standard schema.
     return {
         ok: false,
-        error: `${sqliteLabel} failed reading Chrome cookies (requires a modern Chromium schema with partition provenance): ${result.error}`,
+        error: `${sqliteLabel} failed reading Chrome cookies (requires modern Chromium, e.g. Chrome >= 100): ${result.error}`,
     };
 }
 async function queryNodeOrBun(options) {
