@@ -65,6 +65,8 @@ Notes:
 - On macOS, `chromiumBrowser` also selects the matching Keychain entry, including for custom profile paths.
 - Inline payloads win first; otherwise local backends run in declared order.
 - On Windows, Brave and other Chromium-family profiles work via an explicit `chromeProfile` path.
+- Cookie results preserve `hostOnly`; exact-host and domain scope remain distinct during filtering and deduplication.
+- Partitioned Chromium cookies and partitioned or container-scoped Firefox cookies are excluded with warnings because replay cannot preserve their isolation context.
 - `edgeProfile` falls back to `SWEET_COOKIE_CHROME_PROFILE` when `SWEET_COOKIE_EDGE_PROFILE` is unset.
 - On Linux, safe-storage overrides support Chrome, Chromium, Edge, and Brave.
 

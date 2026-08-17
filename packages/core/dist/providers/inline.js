@@ -21,6 +21,7 @@ export async function getCookiesFromInline(inline, origins, allowlistNames) {
     }
     const hostAllow = new Set(origins.map((o) => new URL(o).hostname));
     const cookies = [];
+    let isolatedCookieCount = 0;
     for (const cookie of parsed.cookies) {
         if (!cookie?.name) {
             continue;
@@ -28,13 +29,38 @@ export async function getCookiesFromInline(inline, origins, allowlistNames) {
         if (allowlistNames && allowlistNames.size > 0 && !allowlistNames.has(cookie.name)) {
             continue;
         }
+        if (hasUnsupportedIsolationProvenance(cookie)) {
+            isolatedCookieCount++;
+            continue;
+        }
         const domain = cookie.domain ?? (cookie.url ? safeHostnameFromUrl(cookie.url) : undefined);
-        if (domain && hostAllow.size > 0 && !matchesAnyHost(hostAllow, domain)) {
+        if (domain &&
+            hostAllow.size > 0 &&
+            !matchesAnyHost(hostAllow, domain, cookie.hostOnly === true)) {
             continue;
         }
         cookies.push(cookie);
     }
+    if (isolatedCookieCount > 0) {
+        warnings.push(`${isolatedCookieCount} inline cookie(s) with partition or container provenance were excluded because replay cannot preserve their isolation context.`);
+    }
     return { cookies, warnings };
+}
+function hasUnsupportedIsolationProvenance(cookie) {
+    const value = cookie;
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+    const record = value;
+    if (record["partitionKey"] !== undefined && record["partitionKey"] !== null) {
+        return true;
+    }
+    const topFrameSiteKey = typeof record["top_frame_site_key"] === "string" ? record["top_frame_site_key"].trim() : "";
+    const originAttributes = typeof record["originAttributes"] === "string" ? record["originAttributes"].trim() : "";
+    const partitionedAttribute = record["isPartitionedAttributeSet"] === 1 ||
+        record["isPartitionedAttributeSet"] === "1" ||
+        record["isPartitionedAttributeSet"] === true;
+    return Boolean(topFrameSiteKey || originAttributes || partitionedAttribute);
 }
 function tryParseCookiePayload(input) {
     const trimmed = input.trim();
@@ -57,9 +83,9 @@ function tryParseCookiePayload(input) {
         return null;
     }
 }
-function matchesAnyHost(hosts, cookieDomain) {
+function matchesAnyHost(hosts, cookieDomain, hostOnly) {
     for (const host of hosts) {
-        if (hostMatchesCookieDomain(host, cookieDomain)) {
+        if (hostMatchesCookieDomain(host, cookieDomain, hostOnly)) {
             return true;
         }
     }

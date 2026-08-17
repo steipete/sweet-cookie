@@ -92,6 +92,12 @@ Chrome and Edge use their default profile when no selector is provided. Firefox 
 
 On Linux, the Chrome backend searches native and Flatpak Google Chrome roots by default. Set `chromiumBrowser` to target native or container roots for Chromium or Brave. Firefox searches its native, Snap, and Flatpak profile roots.
 
+## Cookie scope and isolation
+
+Returned cookies preserve `hostOnly`: host-only cookies match exactly one hostname, while domain cookies may match subdomains. Scope is also part of deduplication, so host-only and domain cookies with the same name, normalized domain, and path remain distinct.
+
+Sweet Cookie excludes Chromium partitioned cookies and Firefox partitioned or container-scoped cookies from local database reads because an ordinary replay cannot preserve their isolation context. Inline payloads carrying partition or container provenance are rejected with a warning for the same reason.
+
 ## Extension exporter
 
 The Chrome Manifest V3 extension in [`apps/extension`](apps/extension) exports cookies from the current profile as JSON, base64, or a downloaded file. Use it when app-bound encryption, keychain prompts, remote execution, or another browser boundary prevents a local database read.

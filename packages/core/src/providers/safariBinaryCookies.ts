@@ -43,7 +43,7 @@ export async function getCookiesFromSafari(
 			if (!domain) {
 				continue;
 			}
-			if (!hosts.some((h) => hostMatchesCookieDomain(h, domain))) {
+			if (!hosts.some((host) => hostMatchesCookieDomain(host, domain, cookie.hostOnly === true))) {
 				continue;
 			}
 			if (!options.includeExpired && cookie.expires && cookie.expires < now) {
@@ -175,6 +175,7 @@ function decodeCookie(cookieBuffer: Buffer): Cookie | null {
 		path: cookiePath,
 		secure: isSecure,
 		httpOnly: isHttpOnly,
+		hostOnly: rawUrl ? !rawUrl.trim().startsWith(".") : true,
 		source: { browser: "safari" },
 	};
 
@@ -227,7 +228,7 @@ function safeHostnameFromUrl(raw: string): string | undefined {
 function dedupeCookies(cookies: Cookie[]): Cookie[] {
 	const merged = new Map<string, Cookie>();
 	for (const cookie of cookies) {
-		const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}`;
+		const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}`;
 		if (!merged.has(key)) {
 			merged.set(key, cookie);
 		}

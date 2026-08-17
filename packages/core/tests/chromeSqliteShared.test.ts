@@ -5,6 +5,102 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 describe("chrome sqlite provider (shared)", () => {
+	it("preserves host scope and excludes partitioned cookies", async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-chrome-shared-"));
+		const dbPath = path.join(dir, "Cookies");
+		writeFileSync(dbPath, "", "utf8");
+		let cookieSql = "";
+
+		vi.doMock("node:sqlite", () => {
+			class DatabaseSync {
+				prepare(sql: string) {
+					return {
+						all() {
+							if (sql.includes("FROM meta")) {
+								return [{ value: 24 }];
+							}
+							cookieSql = sql;
+							return [
+								{
+									name: "sid",
+									value: "host-value",
+									host_key: "chatgpt.com",
+									top_frame_site_key: "",
+									has_cross_site_ancestor: 0,
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: new Uint8Array(),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+								{
+									name: "sid",
+									value: "domain-value",
+									host_key: ".chatgpt.com",
+									top_frame_site_key: "",
+									has_cross_site_ancestor: 0,
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: new Uint8Array(),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+								{
+									name: "partitioned",
+									value: "partitioned-value",
+									host_key: ".chatgpt.com",
+									top_frame_site_key: "https://top.example",
+									has_cross_site_ancestor: 1,
+									path: "/",
+									expires_utc: 0,
+									samesite: 0,
+									encrypted_value: new Uint8Array(),
+									is_secure: 1,
+									is_httponly: 1,
+								},
+							];
+						},
+					};
+				}
+				close() {}
+			}
+			return { DatabaseSync };
+		});
+
+		const { getCookiesFromChromeSqliteDb } =
+			await import("../src/providers/chromeSqlite/shared.js");
+
+		const res = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true },
+			["https://chatgpt.com/"],
+			null,
+			() => null,
+		);
+
+		expect(cookieSql).toContain("top_frame_site_key, has_cross_site_ancestor");
+		expect(res.cookies.map(({ value, hostOnly }) => ({ value, hostOnly }))).toEqual([
+			{ value: "host-value", hostOnly: true },
+			{ value: "domain-value", hostOnly: false },
+		]);
+		expect(res.warnings).toEqual([
+			"1 partitioned Chromium cookie(s) were excluded because replay cannot preserve their partition key.",
+		]);
+
+		const subdomainRes = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true },
+			["https://sub.chatgpt.com/"],
+			null,
+			() => null,
+		);
+		expect(subdomainRes.cookies.map(({ value, hostOnly }) => ({ value, hostOnly }))).toEqual([
+			{ value: "domain-value", hostOnly: false },
+		]);
+	});
+
 	it("passes stripHashPrefix based on meta.version", async () => {
 		vi.resetModules();
 

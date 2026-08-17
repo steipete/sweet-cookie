@@ -144,7 +144,7 @@ export async function getCookies(options: GetCookiesOptions): Promise<GetCookies
 				const safariResult = await getCookiesFromSafari(fileOptions, origins, names);
 				safariWarnings.push(...safariResult.warnings);
 				for (const cookie of safariResult.cookies) {
-					const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}`;
+					const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}`;
 					if (!safariCookies.has(key)) {
 						safariCookies.set(key, cookie);
 					}
@@ -193,9 +193,10 @@ function mergeCookieKey(
 ): string {
 	const domain = cookie.domain ?? "";
 	const pathValue = cookie.path ?? "";
+	const scope = cookie.hostOnly === true ? "host" : "domain";
 	const profile = options.includeProfileInKey ? (cookie.source?.profile ?? "") : "";
 	const storeId = options.includeStoreInKey ? (cookie.source?.storeId ?? "") : "";
-	return `${cookie.name}|${domain}|${pathValue}|${profile}|${storeId}`;
+	return `${cookie.name}|${domain}|${scope}|${pathValue}|${profile}|${storeId}`;
 }
 
 async function collectProfileResults(
@@ -213,7 +214,7 @@ async function collectProfileResults(
 		for (const cookie of result.cookies) {
 			const profileKey = includeProfileInKey ? (cookie.source?.profile ?? "") : "";
 			const storeKey = cookie.source?.storeId ?? "";
-			const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profileKey}|${storeKey}`;
+			const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}|${profileKey}|${storeKey}`;
 			if (!merged.has(key)) {
 				merged.set(key, cookie);
 			}

@@ -1,15 +1,4 @@
-type SweetCookieSameSite = "Strict" | "Lax" | "None";
-
-type ExportedCookie = {
-	name: string;
-	value: string;
-	domain?: string;
-	path?: string;
-	expires?: number;
-	secure?: boolean;
-	httpOnly?: boolean;
-	sameSite?: SweetCookieSameSite;
-};
+import { exportedCookieKey, mapChromeCookie, type ExportedCookie } from "./cookie-export.js";
 
 type ExportPayload = {
 	version: 1;
@@ -193,66 +182,13 @@ async function collectCookies(
 				continue;
 			}
 			const mapped = mapChromeCookie(cookie);
-			const key = `${mapped.name}|${mapped.domain ?? ""}|${mapped.path ?? ""}|${cookie.storeId ?? ""}`;
+			const key = exportedCookieKey(mapped, cookie.storeId ?? "");
 			if (!merged.has(key)) {
 				merged.set(key, { ...mapped, domain: mapped.domain ?? new URL(origin).hostname });
 			}
 		}
 	}
 	return Array.from(merged.values());
-}
-
-function mapChromeCookie(cookie: chrome.cookies.Cookie): ExportedCookie {
-	const result: ExportedCookie = {
-		name: cookie.name,
-		value: cookie.value,
-	};
-
-	const domain = cookie.domain?.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
-	if (domain) {
-		result.domain = domain;
-	}
-
-	if (cookie.path) {
-		result.path = cookie.path;
-	}
-
-	if (
-		!cookie.session &&
-		typeof cookie.expirationDate === "number" &&
-		Number.isFinite(cookie.expirationDate)
-	) {
-		result.expires = Math.round(cookie.expirationDate);
-	}
-
-	if (cookie.secure) {
-		result.secure = true;
-	}
-	if (cookie.httpOnly) {
-		result.httpOnly = true;
-	}
-
-	const sameSite = normalizeSameSite(cookie.sameSite);
-	if (sameSite) {
-		result.sameSite = sameSite;
-	}
-
-	return result;
-}
-
-function normalizeSameSite(
-	value: chrome.cookies.Cookie["sameSite"],
-): SweetCookieSameSite | undefined {
-	if (value === "strict") {
-		return "Strict";
-	}
-	if (value === "lax") {
-		return "Lax";
-	}
-	if (value === "no_restriction") {
-		return "None";
-	}
-	return undefined;
 }
 
 function encodeBase64(input: string): string {

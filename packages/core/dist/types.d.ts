@@ -18,6 +18,8 @@ export interface Cookie {
     value: string;
     /** Hostname without leading dot (e.g. `example.com`). */
     domain?: string;
+    /** True when the browser stored this cookie for exactly one host. */
+    hostOnly?: boolean;
     /** Path (defaults to `/` when omitted). */
     path?: string;
     /**

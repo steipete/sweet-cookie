@@ -36,7 +36,7 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		maxWorkers: 1,
-		include: ["packages/**/tests/**/*.test.ts"],
+		include: ["packages/**/tests/**/*.test.ts", "apps/**/tests/**/*.test.ts"],
 		exclude: ["**/dist/**", "**/node_modules/**", "**/coverage/**"],
 		coverage: {
 			provider: "v8",

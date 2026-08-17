@@ -338,6 +338,40 @@ describe("public API", () => {
 		expect(res.cookies.map((c) => c.value).sort()).toEqual(["brave-default", "chrome-default"]);
 	});
 
+	it("keeps host-only and domain cookies with the same name, domain, and path", async () => {
+		vi.resetModules();
+
+		vi.doMock("../src/providers/chrome.js", () => ({
+			getCookiesFromChrome: async () => ({
+				cookies: [
+					{
+						name: "sid",
+						value: "host-value",
+						domain: "chatgpt.com",
+						hostOnly: true,
+						path: "/",
+					},
+					{
+						name: "sid",
+						value: "domain-value",
+						domain: "chatgpt.com",
+						hostOnly: false,
+						path: "/",
+					},
+				],
+				warnings: [],
+			}),
+		}));
+
+		const { getCookies } = await import("../src/index.js");
+		const res = await getCookies({
+			url: "https://chatgpt.com/",
+			browsers: ["chrome"],
+		});
+
+		expect(res.cookies.map((cookie) => cookie.value)).toEqual(["host-value", "domain-value"]);
+	});
+
 	it("uses ALL_PROFILES as the explicit all-profile selector", async () => {
 		vi.resetModules();
 
