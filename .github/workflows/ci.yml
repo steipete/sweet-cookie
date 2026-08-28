@@ -20,9 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
-          version: 11.18.0
+          version: 11.24.0
           run_install: false
 
       - uses: actions/setup-node@v7.0.0
@@ -46,9 +46,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
-          version: 11.18.0
+          version: 11.24.0
           run_install: false
 
       - uses: actions/setup-node@v7.0.0

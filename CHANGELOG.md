@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Update pnpm, the pnpm setup action, Node and Chrome types, Vitest, Vite, Oxfmt, Oxlint, and esbuild to their latest stable releases.
+
 ## 0.4.1 - 2026-08-01
 
 ### Changed
