@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Document how to build and load the Chrome extension from `apps/extension/dist` without moving source files. (`#41`, thanks `@YOSI-COHEN`)
+
 ### Changed
 
 - Update pnpm, the pnpm setup action, Node and Chrome types, Vitest, Vite, Oxfmt, Oxlint, and esbuild to their latest stable releases.

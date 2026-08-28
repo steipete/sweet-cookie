@@ -161,6 +161,33 @@ Explicit function options take precedence over environment variables.
 
 The extension in [`apps/extension`](../apps/extension) exports cookies from its current Chrome profile. It accepts a target URL, extra origins, and an optional cookie-name allowlist, then offers JSON, base64, and file outputs. The popup requests host permission for the entered origins at export time, stores only its origin and allowlist settings, and makes no network requests.
 
+### Build and load in Chrome
+
+Start with a checkout of this repository and the Node.js and pnpm versions listed under [Development](../README.md#development). From the repository root, run:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter sweet-cookie-extension build
+```
+
+The build compiles the TypeScript and copies the static files into one unpacked extension directory:
+
+```text
+apps/extension/dist/
+  manifest.json
+  popup.html
+  popup.css
+  popup.js
+```
+
+In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `apps/extension/dist` inside your checkout. These are Chrome's standard [unpacked extension loading steps](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked). Open Sweet Cookie from the toolbar's Extensions menu in the profile whose cookies you want to export.
+
+Do not load `apps/extension` or `apps/extension/src`, or move `popup.html` beside the source manifest by hand. The source manifest refers to `popup.html`, which in turn needs `popup.css` and the compiled `popup.js`; the build assembles all four files in `dist`. Moving only the HTML does not compile the script.
+
+After changing extension sources, run the build command again and click **Reload** on Sweet Cookie's card at `chrome://extensions`. Keep the generated directory in place while the unpacked extension is installed.
+
+### Use the exported payload
+
 Pass an exported payload back to the library through an inline option:
 
 ```ts
