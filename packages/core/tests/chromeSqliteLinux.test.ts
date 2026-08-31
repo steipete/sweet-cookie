@@ -27,6 +27,7 @@ const targetRoots = [
 		browser: "brave" as const,
 		roots: (home: string, xdgConfigHome: string) => [
 			path.join(xdgConfigHome, "BraveSoftware", "Brave-Browser"),
+			path.join(home, "snap", "brave", "common", "BraveSoftware", "Brave-Browser"),
 			path.join(
 				home,
 				".var",
@@ -85,9 +86,42 @@ describe("chrome sqlite (linux) discovery", () => {
 		).toEqual(dbPaths);
 	});
 
-	it("uses a pinned Chromium identity for an explicit cookie database", () => {
+	it("preserves Brave identity for an unpinned explicit cookie database", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
-		const dbPath = path.join(home, "custom", "Profile 4", "Network", "Cookies");
+		const dbPath = path.join(
+			home,
+			"custom",
+			"BraveSoftware",
+			"Brave-Browser",
+			"Profile 4",
+			"Network",
+			"Cookies",
+		);
+		mkdirSync(path.dirname(dbPath), { recursive: true });
+		writeFileSync(dbPath, "", "utf8");
+
+		expect(resolveLinuxChromiumCookiesDbs({ profile: dbPath })).toEqual([
+			{
+				browser: "brave",
+				dbPath,
+				keyringApp: "brave",
+				profile: "Profile 4",
+				storeId: path.dirname(path.dirname(dbPath)),
+			},
+		]);
+	});
+
+	it("lets a pinned Chromium identity override explicit-path inference", () => {
+		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
+		const dbPath = path.join(
+			home,
+			"custom",
+			"BraveSoftware",
+			"Brave-Browser",
+			"Profile 4",
+			"Network",
+			"Cookies",
+		);
 		mkdirSync(path.dirname(dbPath), { recursive: true });
 		writeFileSync(dbPath, "", "utf8");
 

@@ -13,6 +13,7 @@ type LinuxChromiumBrowserId = Exclude<ChromiumBrowserId, "arc">;
 type LinuxChromiumTarget = {
 	[Browser in LinuxChromiumBrowserId]: {
 		id: Browser;
+		explicitPathMarkers: readonly string[];
 		keyringApp: Browser;
 		profileRoots: string[];
 	};
@@ -44,7 +45,9 @@ export function resolveLinuxChromiumCookiesDbs(options: {
 
 	return resolveCookiesDbsFromProfileOrRoots(args).map((db) => {
 		const target =
-			targets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ?? fallbackTarget;
+			targets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ??
+			targets.find((candidate) => targetMatchesExplicitDb(candidate, db.dbPath)) ??
+			fallbackTarget;
 		return {
 			...db,
 			browser: target.id,
@@ -64,6 +67,7 @@ function linuxChromiumTargets(): LinuxChromiumTarget[] {
 	return [
 		{
 			id: "chrome",
+			explicitPathMarkers: [],
 			keyringApp: "chrome",
 			profileRoots: [
 				path.join(xdgConfigHome, "google-chrome"),
@@ -72,6 +76,7 @@ function linuxChromiumTargets(): LinuxChromiumTarget[] {
 		},
 		{
 			id: "chromium",
+			explicitPathMarkers: [],
 			keyringApp: "chromium",
 			profileRoots: [
 				path.join(xdgConfigHome, "chromium"),
@@ -81,9 +86,11 @@ function linuxChromiumTargets(): LinuxChromiumTarget[] {
 		},
 		{
 			id: "brave",
+			explicitPathMarkers: ["bravesoftware", "brave-browser", "brave browser"],
 			keyringApp: "brave",
 			profileRoots: [
 				path.join(xdgConfigHome, "BraveSoftware", "Brave-Browser"),
+				path.join(home, "snap", "brave", "common", "BraveSoftware", "Brave-Browser"),
 				path.join(
 					home,
 					".var",
@@ -96,6 +103,11 @@ function linuxChromiumTargets(): LinuxChromiumTarget[] {
 			],
 		},
 	];
+}
+
+function targetMatchesExplicitDb(target: LinuxChromiumTarget, dbPath: string): boolean {
+	const normalizedDbPath = dbPath.toLowerCase();
+	return target.explicitPathMarkers.some((marker) => normalizedDbPath.includes(marker));
 }
 
 function targetContainsDb(target: LinuxChromiumTarget, dbPath: string): boolean {

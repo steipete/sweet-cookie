@@ -14,7 +14,9 @@ export function resolveLinuxChromiumCookiesDbs(options) {
         args.profile = options.profile;
     }
     return resolveCookiesDbsFromProfileOrRoots(args).map((db) => {
-        const target = targets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ?? fallbackTarget;
+        const target = targets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ??
+            targets.find((candidate) => targetMatchesExplicitDb(candidate, db.dbPath)) ??
+            fallbackTarget;
         return {
             ...db,
             browser: target.id,
@@ -31,6 +33,7 @@ function linuxChromiumTargets() {
     return [
         {
             id: "chrome",
+            explicitPathMarkers: [],
             keyringApp: "chrome",
             profileRoots: [
                 path.join(xdgConfigHome, "google-chrome"),
@@ -39,6 +42,7 @@ function linuxChromiumTargets() {
         },
         {
             id: "chromium",
+            explicitPathMarkers: [],
             keyringApp: "chromium",
             profileRoots: [
                 path.join(xdgConfigHome, "chromium"),
@@ -48,13 +52,19 @@ function linuxChromiumTargets() {
         },
         {
             id: "brave",
+            explicitPathMarkers: ["bravesoftware", "brave-browser", "brave browser"],
             keyringApp: "brave",
             profileRoots: [
                 path.join(xdgConfigHome, "BraveSoftware", "Brave-Browser"),
+                path.join(home, "snap", "brave", "common", "BraveSoftware", "Brave-Browser"),
                 path.join(home, ".var", "app", "com.brave.Browser", "config", "BraveSoftware", "Brave-Browser"),
             ],
         },
     ];
+}
+function targetMatchesExplicitDb(target, dbPath) {
+    const normalizedDbPath = dbPath.toLowerCase();
+    return target.explicitPathMarkers.some((marker) => normalizedDbPath.includes(marker));
 }
 function targetContainsDb(target, dbPath) {
     return target.profileRoots.some((root) => {
