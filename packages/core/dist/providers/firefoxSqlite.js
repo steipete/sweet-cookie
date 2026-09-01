@@ -218,9 +218,10 @@ function resolveFirefoxCookiesDbs(profile) {
             }
             continue;
         }
+        const availableProfiles = safeReaddir(root).filter((entry) => existsSync(path.join(root, entry, "cookies.sqlite")));
         const entries = profile === ALL_PROFILES
-            ? safeReaddir(root)
-            : prioritizeFirefoxDefaultProfile(safeReaddir(root));
+            ? availableProfiles
+            : prioritizeFirefoxDefaultProfile(availableProfiles);
         for (const entry of entries) {
             const candidate = path.join(root, entry, "cookies.sqlite");
             if (existsSync(candidate)) {

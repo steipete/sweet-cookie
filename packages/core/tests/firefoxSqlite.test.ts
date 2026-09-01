@@ -407,6 +407,29 @@ describe("firefox sqlite provider (Linux profile roots, issue #26)", () => {
 		},
 	);
 
+	it("skips non-profile directories before selecting a Snap default", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-container-"));
+		const homeDir = path.join(dir, "home");
+		const snapRoot = path.join(homeDir, "snap", "firefox", "common", ".mozilla", "firefox");
+		const profileName = "rvwkamqb.default";
+		const profileDir = path.join(snapRoot, profileName);
+		mkdirSync(path.join(snapRoot, "Crash Reports"), { recursive: true });
+		mkdirSync(profileDir, { recursive: true });
+		writeFileSync(path.join(profileDir, "cookies.sqlite"), "", "utf8");
+		vi.stubEnv("HOME", homeDir);
+		vi.stubEnv("XDG_CONFIG_HOME", path.join(dir, "xdg-config"));
+
+		const res = await getCookiesFromFirefox(
+			{ includeExpired: true },
+			["https://chatgpt.com/"],
+			null,
+		);
+
+		expect(res.cookies).toHaveLength(1);
+		expect(res.cookies[0]?.source?.profile).toBe(profileName);
+		expect(res.warnings).toEqual([]);
+	});
+
 	it("reads profiles across every native and container root with ALL_PROFILES", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-all-linux-"));
 		const homeDir = path.join(dir, "home");
