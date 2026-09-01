@@ -4,7 +4,10 @@ import path from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getLinuxChromiumSafeStoragePassword } from "../src/providers/chromeSqlite/linuxKeyring.js";
+import {
+	getLinuxChromiumSafeStoragePassword,
+	resolveLinuxKeyringBackend,
+} from "../src/providers/chromeSqlite/linuxKeyring.js";
 
 const itIfPosix = process.platform === "win32" ? it.skip : it;
 
@@ -98,6 +101,30 @@ process.stdout.write(response.stdout);
 describe("linux keyring", () => {
 	beforeEach(() => {
 		vi.unstubAllEnvs();
+	});
+
+	it("selects KWallet for a KDE desktop", () => {
+		vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", "");
+		vi.stubEnv("XDG_CURRENT_DESKTOP", "GNOME:KDE");
+		vi.stubEnv("KDE_FULL_SESSION", "");
+
+		expect(resolveLinuxKeyringBackend()).toBe("kwallet");
+	});
+
+	it("selects GNOME when the desktop is not KDE", () => {
+		vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", "");
+		vi.stubEnv("XDG_CURRENT_DESKTOP", "GNOME");
+		vi.stubEnv("KDE_FULL_SESSION", "");
+
+		expect(resolveLinuxKeyringBackend()).toBe("gnome");
+	});
+
+	it("honors an explicit keyring backend", () => {
+		vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", "basic");
+		vi.stubEnv("XDG_CURRENT_DESKTOP", "KDE");
+		vi.stubEnv("KDE_FULL_SESSION", "true");
+
+		expect(resolveLinuxKeyringBackend()).toBe("basic");
 	});
 
 	itIfPosix("returns password from service/account lookup when available (Chrome)", async () => {

@@ -10,7 +10,10 @@ import {
 	decryptChromiumAes128CbcCookieValue,
 	deriveAes128CbcKeyFromPassword,
 } from "../packages/core/dist/providers/chromeSqlite/crypto.js";
-import { getLinuxChromiumSafeStoragePassword } from "../packages/core/dist/providers/chromeSqlite/linuxKeyring.js";
+import {
+	getLinuxChromiumSafeStoragePassword,
+	resolveLinuxKeyringBackend,
+} from "../packages/core/dist/providers/chromeSqlite/linuxKeyring.js";
 import { getCookiesFromChromeSqliteLinux } from "../packages/core/dist/providers/chromeSqliteLinux.js";
 import { resolveLinuxChromiumCookiesDbs } from "../packages/core/dist/providers/chromium/linuxTargets.js";
 
@@ -37,7 +40,8 @@ function parseBrowser(args) {
 }
 
 async function proveRealLinuxBrowser(browserId) {
-	validateEnvironment();
+	const keyringBackend = resolveLinuxKeyringBackend();
+	validateEnvironment(keyringBackend);
 
 	const resolvedDb = resolveLinuxChromiumCookiesDbs({ chromiumBrowser: browserId })[0];
 	if (!resolvedDb) {
@@ -47,7 +51,10 @@ async function proveRealLinuxBrowser(browserId) {
 		throw new Error("The discovered database did not retain the requested browser identity.");
 	}
 
-	const keyringResult = await getLinuxChromiumSafeStoragePassword({ app: browserId });
+	const keyringResult = await getLinuxChromiumSafeStoragePassword({
+		app: browserId,
+		backend: keyringBackend,
+	});
 	if (keyringResult.warnings.length > 0 || !keyringResult.password) {
 		throw new Error("The desktop keyring did not return the browser Safe Storage password.");
 	}
@@ -86,7 +93,7 @@ async function proveRealLinuxBrowser(browserId) {
 					profile: resolvedDb.profile ?? "unknown",
 					profileAccess: "read-only source copied to temporary snapshots",
 					keyring: {
-						backend: "desktop Secret Service",
+						backend: keyringBackend,
 						overrideUsed: false,
 						passwordRetrieved: true,
 					},
@@ -107,7 +114,7 @@ async function proveRealLinuxBrowser(browserId) {
 	}
 }
 
-function validateEnvironment() {
+function validateEnvironment(keyringBackend) {
 	if (process.platform !== "linux") {
 		throw new Error("This proof must run on Linux.");
 	}
@@ -118,9 +125,16 @@ function validateEnvironment() {
 	if (!process.env["DBUS_SESSION_BUS_ADDRESS"]?.trim()) {
 		throw new Error("DBUS_SESSION_BUS_ADDRESS must point to the active desktop session bus.");
 	}
-	const secretTool = spawnSync("secret-tool", ["--help"], { stdio: "ignore" });
-	if (secretTool.error) {
-		throw new Error("secret-tool is required to read the desktop keyring.");
+	if (keyringBackend === "basic") {
+		throw new Error("The proof requires the GNOME or KWallet keyring backend.");
+	}
+	const requiredCommands =
+		keyringBackend === "kwallet" ? ["dbus-send", "kwallet-query"] : ["secret-tool"];
+	for (const command of requiredCommands) {
+		const probe = spawnSync(command, ["--help"], { stdio: "ignore" });
+		if (probe.error) {
+			throw new Error(`${command} is required for the selected ${keyringBackend} backend.`);
+		}
 	}
 }
 

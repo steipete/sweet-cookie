@@ -62,7 +62,7 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 		return { password: override, warnings };
 	}
 
-	const backend = options.backend ?? parseLinuxKeyringBackend() ?? chooseLinuxKeyringBackend();
+	const backend = options.backend ?? resolveLinuxKeyringBackend();
 	// `basic` means "don't try keyrings" (Chrome will fall back to older/less-secure schemes on some setups).
 	if (backend === "basic") {
 		return { password: "", warnings };
@@ -172,7 +172,11 @@ function parseLinuxKeyringBackend(): LinuxKeyringBackend | undefined {
 	return undefined;
 }
 
-function chooseLinuxKeyringBackend(): LinuxKeyringBackend {
+export function resolveLinuxKeyringBackend(): LinuxKeyringBackend {
+	const configuredBackend = parseLinuxKeyringBackend();
+	if (configuredBackend !== undefined) {
+		return configuredBackend;
+	}
 	const xdg = readEnv("XDG_CURRENT_DESKTOP") ?? "";
 	const isKde =
 		xdg.split(":").some((p) => p.trim().toLowerCase() === "kde") || !!readEnv("KDE_FULL_SESSION");

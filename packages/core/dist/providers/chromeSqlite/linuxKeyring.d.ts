@@ -29,4 +29,5 @@ export declare function getLinuxBraveSafeStoragePassword(options?: {
     password: string;
     warnings: string[];
 }>;
+export declare function resolveLinuxKeyringBackend(): LinuxKeyringBackend;
 //# sourceMappingURL=linuxKeyring.d.ts.map
