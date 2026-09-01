@@ -7,7 +7,7 @@ Supports:
 - Inline payloads (JSON / base64 / file) — most reliable path.
 - Local browser reads (best effort): Chrome, Edge, Firefox, Safari (macOS).
 - On macOS, the `chrome` backend checks Chrome and Brave roots by default.
-- On Linux, the `chrome` backend checks native and container roots for Chrome, Chromium, and Brave.
+- On Linux, the `chrome` backend checks native and Flatpak Google Chrome roots by default. Set `chromiumBrowser` to target native or container roots for Chromium or Brave.
 - Default browser order is `chrome`, `safari`, `firefox` unless `browsers` or env overrides it.
 
 Install:

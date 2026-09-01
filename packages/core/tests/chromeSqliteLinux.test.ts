@@ -46,7 +46,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("discovers a Chromium Snap default profile when no browser is pinned", () => {
+	it("keeps unpinned default discovery scoped to Chrome", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
 		const dbPath = path.join(home, "snap", "chromium", "common", "chromium", "Default", "Cookies");
 		mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -54,11 +54,31 @@ describe("chrome sqlite (linux) discovery", () => {
 		vi.stubEnv("HOME", home);
 		vi.stubEnv("XDG_CONFIG_HOME", path.join(home, ".config"));
 
+		expect(resolveLinuxChromiumCookiesDbs({})).toEqual([]);
+	});
+
+	it("discovers a Chrome Flatpak default profile when unpinned", () => {
+		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
+		const dbPath = path.join(
+			home,
+			".var",
+			"app",
+			"com.google.Chrome",
+			"config",
+			"google-chrome",
+			"Default",
+			"Cookies",
+		);
+		mkdirSync(path.dirname(dbPath), { recursive: true });
+		writeFileSync(dbPath, "", "utf8");
+		vi.stubEnv("HOME", home);
+		vi.stubEnv("XDG_CONFIG_HOME", path.join(home, ".config"));
+
 		expect(resolveLinuxChromiumCookiesDbs({})).toEqual([
 			{
-				browser: "chromium",
+				browser: "chrome",
 				dbPath,
-				keyringApp: "chromium",
+				keyringApp: "chrome",
 				profile: "Default",
 			},
 		]);
@@ -111,6 +131,34 @@ describe("chrome sqlite (linux) discovery", () => {
 		]);
 	});
 
+	it("preserves Chromium identity for an unpinned explicit cookie database", () => {
+		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
+		const dbPath = path.join(
+			home,
+			"snap",
+			"chromium",
+			"common",
+			"chromium",
+			"Profile 4",
+			"Network",
+			"Cookies",
+		);
+		mkdirSync(path.dirname(dbPath), { recursive: true });
+		writeFileSync(dbPath, "", "utf8");
+		vi.stubEnv("HOME", home);
+		vi.stubEnv("XDG_CONFIG_HOME", path.join(home, ".config"));
+
+		expect(resolveLinuxChromiumCookiesDbs({ profile: dbPath })).toEqual([
+			{
+				browser: "chromium",
+				dbPath,
+				keyringApp: "chromium",
+				profile: "Profile 4",
+				storeId: path.dirname(path.dirname(dbPath)),
+			},
+		]);
+	});
+
 	it("lets a pinned Chromium identity override explicit-path inference", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
 		const dbPath = path.join(
@@ -141,7 +189,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		]);
 	});
 
-	it("reads every supported root when ALL_PROFILES is unpinned", () => {
+	it("keeps unpinned ALL_PROFILES discovery scoped to Chrome", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
 		const xdgConfigHome = path.join(home, "xdg");
 		vi.stubEnv("HOME", home);
@@ -160,6 +208,6 @@ describe("chrome sqlite (linux) discovery", () => {
 			resolveLinuxChromiumCookiesDbs({ profile: ALL_CHROMIUM_PROFILES }).map(
 				({ browser, dbPath, storeId }) => ({ browser, dbPath, storeId }),
 			),
-		).toEqual(expected);
+		).toEqual(expected.filter(({ browser }) => browser === "chrome"));
 	});
 });

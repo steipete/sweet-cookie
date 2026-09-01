@@ -28,16 +28,18 @@ export function resolveLinuxChromiumCookiesDbs(options: {
 	chromiumBrowser?: ChromiumBrowserId;
 	profile?: ChromiumProfileSelector;
 }): ResolvedLinuxChromiumCookiesDb[] {
-	const targets = linuxChromiumTargets().filter(
-		(target) => options.chromiumBrowser === undefined || target.id === options.chromiumBrowser,
+	const allTargets = linuxChromiumTargets();
+	const discoveryTargets = allTargets.filter(
+		(target) => target.id === (options.chromiumBrowser ?? "chrome"),
 	);
-	const fallbackTarget = targets[0];
+	const fallbackTarget = discoveryTargets[0];
 	if (!fallbackTarget) {
 		return [];
 	}
+	const identityTargets = options.chromiumBrowser === undefined ? allTargets : discoveryTargets;
 
 	const args: Parameters<typeof resolveCookiesDbsFromProfileOrRoots>[0] = {
-		roots: targets.flatMap((target) => target.profileRoots),
+		roots: discoveryTargets.flatMap((target) => target.profileRoots),
 	};
 	if (options.profile !== undefined) {
 		args.profile = options.profile;
@@ -45,8 +47,8 @@ export function resolveLinuxChromiumCookiesDbs(options: {
 
 	return resolveCookiesDbsFromProfileOrRoots(args).map((db) => {
 		const target =
-			targets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ??
-			targets.find((candidate) => targetMatchesExplicitDb(candidate, db.dbPath)) ??
+			identityTargets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ??
+			identityTargets.find((candidate) => targetMatchesExplicitDb(candidate, db.dbPath)) ??
 			fallbackTarget;
 		return {
 			...db,

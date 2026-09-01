@@ -90,7 +90,7 @@ const { cookies } = await getCookies({
 
 Chrome and Edge use their default profile when no selector is provided. Firefox prefers `default-release`; Safari has a cookie-file override rather than a profile selector.
 
-On Linux, the Chrome backend searches native, Snap, and Flatpak roots for Chrome, Chromium, and Brave. Firefox searches its native, Snap, and Flatpak profile roots.
+On Linux, the Chrome backend searches native and Flatpak Google Chrome roots by default. Set `chromiumBrowser` to target native or container roots for Chromium or Brave. Firefox searches its native, Snap, and Flatpak profile roots.
 
 ## Extension exporter
 

@@ -62,7 +62,7 @@ async function proveRealLinuxBrowser(browserId) {
 		}
 
 		const result = await getCookiesFromChromeSqliteLinux(
-			{ profile: resolvedDb.dbPath, includeExpired: true },
+			{ chromiumBrowser: browserId, profile: resolvedDb.dbPath, includeExpired: true },
 			[candidate.origin],
 			new Set([candidate.name]),
 		);

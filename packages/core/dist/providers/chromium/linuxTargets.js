@@ -2,20 +2,22 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { resolveCookiesDbsFromProfileOrRoots, } from "./paths.js";
 export function resolveLinuxChromiumCookiesDbs(options) {
-    const targets = linuxChromiumTargets().filter((target) => options.chromiumBrowser === undefined || target.id === options.chromiumBrowser);
-    const fallbackTarget = targets[0];
+    const allTargets = linuxChromiumTargets();
+    const discoveryTargets = allTargets.filter((target) => target.id === (options.chromiumBrowser ?? "chrome"));
+    const fallbackTarget = discoveryTargets[0];
     if (!fallbackTarget) {
         return [];
     }
+    const identityTargets = options.chromiumBrowser === undefined ? allTargets : discoveryTargets;
     const args = {
-        roots: targets.flatMap((target) => target.profileRoots),
+        roots: discoveryTargets.flatMap((target) => target.profileRoots),
     };
     if (options.profile !== undefined) {
         args.profile = options.profile;
     }
     return resolveCookiesDbsFromProfileOrRoots(args).map((db) => {
-        const target = targets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ??
-            targets.find((candidate) => targetMatchesExplicitDb(candidate, db.dbPath)) ??
+        const target = identityTargets.find((candidate) => targetContainsDb(candidate, db.dbPath)) ??
+            identityTargets.find((candidate) => targetMatchesExplicitDb(candidate, db.dbPath)) ??
             fallbackTarget;
         return {
             ...db,

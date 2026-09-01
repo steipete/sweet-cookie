@@ -71,7 +71,7 @@ High-signal options:
 2. Local browsers in declared order:
    - **Chrome**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)
-     - macOS default discovery checks Google Chrome and Brave roots; Linux checks native and container roots for Chrome, Chromium, and Brave; `chromiumBrowser` can pin a supported target explicitly
+     - macOS default discovery checks Google Chrome and Brave roots; Linux defaults to native and Flatpak Google Chrome roots; `chromiumBrowser` targets native or container roots for Chromium or Brave explicitly
      - decrypt:
        - macOS: Keychain `security` (Chrome Safe Storage)
        - Windows: DPAPI unwrap (Local State) + AES-GCM

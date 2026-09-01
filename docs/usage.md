@@ -126,7 +126,7 @@ await getCookies({
 });
 ```
 
-On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`, or `chromium`; the default checks Google Chrome and Brave roots. On Linux, it pins `chrome`, `brave`, or `chromium`; the default checks native and container roots for all three. On Windows, target another Chromium-family browser by passing its profile directory or cookie database through `chromeProfile`.
+On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`, or `chromium`; the default checks Google Chrome and Brave roots. On Linux, the backend defaults to native and Flatpak Google Chrome roots; set `chromiumBrowser` to target native or container roots for Chromium or Brave. On Windows, target another Chromium-family browser by passing its profile directory or cookie database through `chromeProfile`.
 
 ## Browser and platform details
 
