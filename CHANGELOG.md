@@ -2,6 +2,10 @@
 
 ## 0.4.3 - Unreleased
 
+### Fixed
+
+- Discover Linux Chrome, Chromium, Brave, and Firefox profiles across native, Snap, and Flatpak roots, with Chromium-specific keyring identifiers for `v11` cookies. (`#47`, thanks `@LuisUrrutia`)
+
 ### Changed
 
 - Refresh pnpm, Oxfmt, Oxlint, and Node/Chrome development types while preserving the supported Node runtime floors.

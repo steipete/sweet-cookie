@@ -90,6 +90,8 @@ const { cookies } = await getCookies({
 
 Chrome and Edge use their default profile when no selector is provided. Firefox prefers `default-release`; Safari has a cookie-file override rather than a profile selector.
 
+On Linux, the Chrome backend searches native and Flatpak Google Chrome roots by default. Set `chromiumBrowser` to target native or container roots for Chromium or Brave. Firefox searches its native, Snap, and Flatpak profile roots.
+
 ## Extension exporter
 
 The Chrome Manifest V3 extension in [`apps/extension`](apps/extension) exports cookies from the current profile as JSON, base64, or a downloaded file. Use it when app-bound encryption, keychain prompts, remote execution, or another browser boundary prevents a local database read.

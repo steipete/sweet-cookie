@@ -15,7 +15,7 @@ Options:
   --edge-profile <value>        Edge profile selector/path.
   --firefox-profile <value>     Firefox profile selector/path.
   --safari-cookies-file <path>  Safari Cookies.binarycookies override.
-  --chromium-browser <name>     macOS chrome backend target: chrome, brave, arc, chromium.
+  --chromium-browser <name>     macOS/Linux chrome target: chrome, brave, arc, chromium (Arc is macOS-only).
   --mode <merge|first>          Browser merge mode. Default: merge.
   --include-expired             Include expired cookies.
   --timeout-ms <ms>             OS helper timeout.

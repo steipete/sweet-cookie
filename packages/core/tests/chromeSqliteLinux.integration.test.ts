@@ -1,13 +1,11 @@
 import { createCipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { importNodeSqlite } from "../src/util/nodeSqlite.js";
-
-const describeIfLinux = process.platform === "linux" ? describe : describe.skip;
 
 function encryptAes128CbcCookieValue(options: {
 	prefix: "v10" | "v11";
@@ -64,7 +62,11 @@ async function createChromiumCookiesDb(options: {
 	}
 }
 
-describeIfLinux("chrome sqlite (linux) integration", () => {
+describe("chrome sqlite (linux) integration", () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	it("decrypts v10 and v11 cookies from a real sqlite DB", async () => {
 		vi.resetModules();
 
@@ -118,5 +120,88 @@ describeIfLinux("chrome sqlite (linux) integration", () => {
 			"v10=cookie-v10",
 			"v11=cookie-v11",
 		]);
+	});
+
+	it("decrypts a Chromium v11 cookie with the Chromium keyring identity", async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-chromium-it-"));
+		const dbPath = path.join(dir, "Cookies");
+		const v11Password = "chromium-v11-password";
+		vi.stubEnv("SWEET_COOKIE_CHROMIUM_SAFE_STORAGE_PASSWORD", v11Password);
+
+		await createChromiumCookiesDb({
+			dbPath,
+			metaVersion: 24,
+			rows: [
+				{
+					host_key: ".example.com",
+					name: "v11",
+					value: "",
+					encrypted_value: encryptAes128CbcCookieValue({
+						prefix: "v11",
+						password: v11Password,
+						iterations: 1,
+						stripHashPrefix: true,
+						value: "chromium-cookie-v11",
+					}),
+				},
+			],
+		});
+
+		const { getCookiesFromChromeSqliteLinux } =
+			await import("../src/providers/chromeSqliteLinux.js");
+		const res = await getCookiesFromChromeSqliteLinux(
+			{ chromiumBrowser: "chromium", profile: dbPath, includeExpired: true },
+			["https://example.com/"],
+			null,
+		);
+
+		expect(res).toMatchObject({
+			cookies: [{ name: "v11", value: "chromium-cookie-v11" }],
+			warnings: [],
+		});
+	});
+
+	it("decrypts an unpinned explicit Brave v11 cookie with the Brave keyring identity", async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-brave-it-"));
+		const dbPath = path.join(dir, "custom", "BraveSoftware", "Brave-Browser", "Default", "Cookies");
+		const v11Password = "brave-v11-password";
+		vi.stubEnv("SWEET_COOKIE_BRAVE_SAFE_STORAGE_PASSWORD", v11Password);
+		mkdirSync(path.dirname(dbPath), { recursive: true });
+
+		await createChromiumCookiesDb({
+			dbPath,
+			metaVersion: 24,
+			rows: [
+				{
+					host_key: ".example.com",
+					name: "v11",
+					value: "",
+					encrypted_value: encryptAes128CbcCookieValue({
+						prefix: "v11",
+						password: v11Password,
+						iterations: 1,
+						stripHashPrefix: true,
+						value: "brave-cookie-v11",
+					}),
+				},
+			],
+		});
+
+		const { getCookiesFromChromeSqliteLinux } =
+			await import("../src/providers/chromeSqliteLinux.js");
+		const res = await getCookiesFromChromeSqliteLinux(
+			{ profile: dbPath, includeExpired: true },
+			["https://example.com/"],
+			null,
+		);
+
+		expect(res).toMatchObject({
+			cookies: [{ name: "v11", value: "brave-cookie-v11" }],
+			warnings: [],
+		});
 	});
 });

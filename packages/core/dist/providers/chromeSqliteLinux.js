@@ -1,31 +1,29 @@
 import { decryptChromiumAes128CbcCookieValue, deriveAes128CbcKeyFromPassword, } from "./chromeSqlite/crypto.js";
-import { getLinuxBraveSafeStoragePassword, getLinuxChromeSafeStoragePassword, } from "./chromeSqlite/linuxKeyring.js";
+import { getLinuxChromiumSafeStoragePassword } from "./chromeSqlite/linuxKeyring.js";
 import { getCookiesFromChromeSqliteDb } from "./chromeSqlite/shared.js";
-import { resolveChromiumCookiesDbsLinux } from "./chromium/linuxPaths.js";
+import { resolveLinuxChromiumCookiesDbs } from "./chromium/linuxTargets.js";
 export async function getCookiesFromChromeSqliteLinux(options, origins, allowlistNames) {
-    const args = {
-        configDirName: "google-chrome",
-    };
+    const args = {};
     if (options.profile !== undefined) {
         args.profile = options.profile;
     }
-    const dbs = resolveChromiumCookiesDbsLinux(args);
+    if (options.chromiumBrowser !== undefined) {
+        args.chromiumBrowser = options.chromiumBrowser;
+    }
+    const dbs = resolveLinuxChromiumCookiesDbs(args);
     if (!dbs.length) {
         return { cookies: [], warnings: ["Chrome cookies database not found."] };
     }
     const warnings = [];
     const cookies = [];
     for (const db of dbs) {
-        const isBrave = db.dbPath.toLowerCase().includes("bravesoftware") ||
-            db.dbPath.toLowerCase().includes("brave-browser") ||
-            db.dbPath.toLowerCase().includes("brave browser");
-        const { password, warnings: keyringWarnings } = isBrave
-            ? await getLinuxBraveSafeStoragePassword()
-            : await getLinuxChromeSafeStoragePassword();
+        const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
+            app: db.keyringApp,
+        });
         warnings.push(...keyringWarnings);
         // Linux uses multiple schemes depending on distro/keyring availability.
         // - v10 often uses the hard-coded "peanuts" password
-        // - v11 uses "Chrome Safe Storage" from the keyring (may be empty/unavailable)
+        // - v11 uses the browser's "Safe Storage" entry from the keyring (may be empty/unavailable)
         const v10Key = deriveAes128CbcKeyFromPassword("peanuts", { iterations: 1 });
         const emptyKey = deriveAes128CbcKeyFromPassword("", { iterations: 1 });
         const v11Key = deriveAes128CbcKeyFromPassword(password, { iterations: 1 });

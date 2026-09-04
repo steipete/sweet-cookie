@@ -102,9 +102,11 @@ export interface GetCookiesOptions {
 	/** Override path to Safari Cookies.binarycookies (for tests / debugging). */
 	safariCookiesFile?: PathType;
 	/**
-	 * Specific Chromium browser to target on macOS.
+	 * Specific Chromium browser to target on macOS or Linux.
 	 * When set, only that browser's keychain entry/root will be tried (avoids multiple password prompts).
 	 * When omitted, the macOS `chrome` backend checks Chrome and Brave roots by default.
+	 * On Linux, the backend checks Google Chrome roots by default; select Chromium or Brave
+	 * explicitly to search their native and container roots. Arc is macOS-only.
 	 * Only used when `browsers` includes 'chrome'.
 	 */
 	chromiumBrowser?: "chrome" | "brave" | "arc" | "chromium";
