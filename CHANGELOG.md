@@ -2,6 +2,10 @@
 
 ## 0.4.3 - Unreleased
 
+### Fixed
+
+- Use the explicitly selected macOS Chromium browser's Keychain entry when a custom profile path does not identify its browser. (`#43`, thanks `@0thernet`)
+
 ## 0.4.2 - 2026-08-28
 
 ### Fixed
