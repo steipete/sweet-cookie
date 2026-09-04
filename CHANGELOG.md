@@ -2,6 +2,10 @@
 
 ## 0.4.3 - Unreleased
 
+### Changed
+
+- Refresh pnpm, Oxfmt, Oxlint, and Node/Chrome development types while preserving the supported Node runtime floors.
+
 ## 0.4.2 - 2026-08-28
 
 ### Fixed
