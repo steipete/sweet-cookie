@@ -38,7 +38,7 @@ High-signal options:
 - `mode`: `merge` (default) or `first`
 - `profile`: shared Chromium alias (`chromeProfile` / `edgeProfile`); accepts a string, string array, or `ALL_PROFILES`; when omitted, Chromium backends keep their default profile behavior
 - `chromeProfile`: Chrome profile directory, display name from Chromium `Local State`, or path; accepts a string, string array, or `ALL_PROFILES`
-- `chromiumBrowser`: macOS-only explicit `chrome|brave|arc|chromium` target for the `chrome` backend
+- `chromiumBrowser`: explicit `chrome|brave|arc|chromium` target for the macOS or Linux `chrome` backend; Arc is macOS-only
 - `edgeProfile`: Edge profile directory, display name from Chromium `Local State`, or path; accepts a string, string array, or `ALL_PROFILES`
 - `firefoxProfile`: Firefox profile name/path; accepts a string, string array, or `ALL_PROFILES`
 - `safariCookiesFile`: override path to `Cookies.binarycookies`; accepts a string or string array
@@ -71,13 +71,13 @@ High-signal options:
 2. Local browsers in declared order:
    - **Chrome**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)
-     - macOS default discovery checks Google Chrome and Brave roots; `chromiumBrowser` can pin Chrome, Brave, Arc, or Chromium explicitly
+     - macOS default discovery checks Google Chrome and Brave roots; Linux defaults to native and Flatpak Google Chrome roots; `chromiumBrowser` targets native or container roots for Chromium or Brave explicitly
      - decrypt:
        - macOS: Keychain `security` (Chrome Safe Storage)
        - Windows: DPAPI unwrap (Local State) + AES-GCM
        - Linux: v10 (peanuts) + v11 (keyring via `secret-tool` or `kwallet-query` + `dbus-send`)
-     - Linux safe-storage overrides support Chrome, Edge, and Brave env passwords
-     - Linux/Windows Brave and other Chromium-family profiles work when the caller passes an explicit `chromeProfile` path to that profile/DB
+     - Linux safe-storage overrides support Chrome, Chromium, Edge, and Brave env passwords
+     - Windows Brave and other Chromium-family profiles work when the caller passes an explicit `chromeProfile` path to that profile/DB
      - app-bound cookies: expect failures; prefer inline/export
    - **Edge**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)

@@ -8,6 +8,6 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
-		"@types/chrome": "^0.2.7"
+		"@types/chrome": "^0.2.8"
 	}
 }

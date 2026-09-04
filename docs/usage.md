@@ -22,7 +22,7 @@ The CLI accepts a domain or full URL. It prints cookie output to stdout and prov
 | `--edge-profile <value>`       | Set an Edge profile name, directory, or cookie database path.                         |
 | `--firefox-profile <value>`    | Set a Firefox profile name, directory, or `cookies.sqlite` path.                      |
 | `--safari-cookies-file <path>` | Override the Safari `Cookies.binarycookies` path.                                     |
-| `--chromium-browser <name>`    | On macOS, target `chrome`, `brave`, `arc`, or `chromium`.                             |
+| `--chromium-browser <name>`    | On macOS or Linux, target `chrome`, `brave`, `arc`, or `chromium`; Arc is macOS-only. |
 | `--mode <merge\|first>`        | Merge browser results or stop at the first backend with cookies. Defaults to `merge`. |
 | `--include-expired`            | Include expired cookies.                                                              |
 | `--timeout-ms <ms>`            | Set the timeout for operating-system helper calls.                                    |
@@ -65,25 +65,25 @@ const cookieHeader = toCookieHeader(cookies, { dedupeByName: true });
 
 ### Options
 
-| Option                | Behavior                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| `url`                 | Required base URL for origin filtering. Include a protocol.                                  |
-| `origins`             | Additional origins for OAuth, SSO, or multi-domain flows.                                    |
-| `names`               | Cookie-name allowlist.                                                                       |
-| `browsers`            | Ordered sources: `chrome`, `edge`, `firefox`, `safari`. Defaults to Chrome, Safari, Firefox. |
-| `mode`                | `merge` combines backends; `first` stops after the first backend with cookies.               |
-| `profile`             | Shared alias for `chromeProfile` and `edgeProfile`.                                          |
-| `chromeProfile`       | Chrome profile selector, selector array, or `ALL_PROFILES`.                                  |
-| `chromiumBrowser`     | On macOS, pin the Chrome backend to Chrome, Brave, Arc, or Chromium.                         |
-| `edgeProfile`         | Edge profile selector, selector array, or `ALL_PROFILES`.                                    |
-| `firefoxProfile`      | Firefox profile selector, selector array, or `ALL_PROFILES`.                                 |
-| `safariCookiesFile`   | Safari cookie-file override or array of overrides.                                           |
-| `inlineCookiesJson`   | JSON string containing `Cookie[]` or `{ cookies: Cookie[] }`.                                |
-| `inlineCookiesBase64` | Base64-encoded JSON in either supported shape.                                               |
-| `inlineCookiesFile`   | Path to a JSON or base64 payload file.                                                       |
-| `timeoutMs`           | Maximum duration for Keychain, keyring, or DPAPI helpers.                                    |
-| `includeExpired`      | Include expired cookies; defaults to `false`.                                                |
-| `debug`               | Add provider diagnostics without raw values.                                                 |
+| Option                | Behavior                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| `url`                 | Required base URL for origin filtering. Include a protocol.                                      |
+| `origins`             | Additional origins for OAuth, SSO, or multi-domain flows.                                        |
+| `names`               | Cookie-name allowlist.                                                                           |
+| `browsers`            | Ordered sources: `chrome`, `edge`, `firefox`, `safari`. Defaults to Chrome, Safari, Firefox.     |
+| `mode`                | `merge` combines backends; `first` stops after the first backend with cookies.                   |
+| `profile`             | Shared alias for `chromeProfile` and `edgeProfile`.                                              |
+| `chromeProfile`       | Chrome profile selector, selector array, or `ALL_PROFILES`.                                      |
+| `chromiumBrowser`     | On macOS or Linux, pin the Chrome backend to Chrome, Brave, Arc, or Chromium; Arc is macOS-only. |
+| `edgeProfile`         | Edge profile selector, selector array, or `ALL_PROFILES`.                                        |
+| `firefoxProfile`      | Firefox profile selector, selector array, or `ALL_PROFILES`.                                     |
+| `safariCookiesFile`   | Safari cookie-file override or array of overrides.                                               |
+| `inlineCookiesJson`   | JSON string containing `Cookie[]` or `{ cookies: Cookie[] }`.                                    |
+| `inlineCookiesBase64` | Base64-encoded JSON in either supported shape.                                                   |
+| `inlineCookiesFile`   | Path to a JSON or base64 payload file.                                                           |
+| `timeoutMs`           | Maximum duration for Keychain, keyring, or DPAPI helpers.                                        |
+| `includeExpired`      | Include expired cookies; defaults to `false`.                                                    |
+| `debug`               | Add provider diagnostics without raw values.                                                     |
 
 The exported TypeScript definitions in [`packages/core/src/types.ts`](../packages/core/src/types.ts) are the canonical API reference.
 
@@ -126,7 +126,7 @@ await getCookies({
 });
 ```
 
-On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`, or `chromium`. The selection also chooses the matching Keychain entry when `chromeProfile` is a custom path that does not identify its browser. By default, the backend checks Google Chrome and Brave roots. On Linux and Windows, target Brave or another Chromium-family browser by passing its profile directory or cookie database through `chromeProfile`.
+On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`, or `chromium`; the default checks Google Chrome and Brave roots. The selection also chooses the matching Keychain entry when `chromeProfile` is a custom path that does not identify its browser. On Linux, the backend defaults to native and Flatpak Google Chrome roots; set `chromiumBrowser` to target native or container roots for Chromium or Brave. On Windows, target another Chromium-family browser by passing its profile directory or cookie database through `chromeProfile`.
 
 ## Browser and platform details
 
@@ -134,7 +134,7 @@ On macOS, `chromiumBrowser` pins the Chrome backend to `chrome`, `brave`, `arc`,
 | ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Chrome / Chromium | macOS, Windows, Linux | Modern Chromium cookie databases; Keychain on macOS, DPAPI on Windows, keyring or basic storage on Linux. |
 | Edge              | macOS, Windows, Linux | Chromium database handling with Edge-specific paths and credentials.                                      |
-| Firefox           | macOS, Windows, Linux | Reads `cookies.sqlite`; prefers the `default-release` profile.                                            |
+| Firefox           | macOS, Windows, Linux | Reads `cookies.sqlite`; Linux discovery includes native, Snap, and Flatpak roots.                         |
 | Safari            | macOS                 | Parses `Cookies.binarycookies` directly.                                                                  |
 
 Chrome and Edge support modern Chromium cookie database schemas, roughly version 100 and newer. Profile databases may be read while the browser is open because Sweet Cookie queries a temporary snapshot.
@@ -152,6 +152,7 @@ Chromium `v20` App-Bound Encryption on Windows binds some cookie values to the b
 | `SWEET_COOKIE_FIREFOX_PROFILE`                  | Default Firefox profile selector.                                                       |
 | `SWEET_COOKIE_LINUX_KEYRING`                    | Linux keyring mode: `gnome`, `kwallet`, or `basic`.                                     |
 | `SWEET_COOKIE_CHROME_SAFE_STORAGE_PASSWORD`     | Linux Chrome safe-storage password override.                                            |
+| `SWEET_COOKIE_CHROMIUM_SAFE_STORAGE_PASSWORD`   | Linux Chromium safe-storage password override.                                          |
 | `SWEET_COOKIE_EDGE_SAFE_STORAGE_PASSWORD`       | Linux Edge safe-storage password override.                                              |
 | `SWEET_COOKIE_BRAVE_SAFE_STORAGE_PASSWORD`      | Linux Brave safe-storage password override.                                             |
 

@@ -5,6 +5,11 @@
 ### Fixed
 
 - Use the explicitly selected macOS Chromium browser's Keychain entry when a custom profile path does not identify its browser. (`#43`, thanks `@0thernet`)
+- Discover Linux Chrome, Chromium, Brave, and Firefox profiles across native, Snap, and Flatpak roots, with Chromium-specific keyring identifiers for `v11` cookies. (`#47`, thanks `@LuisUrrutia`)
+
+### Changed
+
+- Refresh pnpm, Oxfmt, Oxlint, and Node/Chrome development types while preserving the supported Node runtime floors.
 
 ## 0.4.2 - 2026-08-28
 

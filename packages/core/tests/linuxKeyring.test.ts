@@ -4,9 +4,36 @@ import path from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getLinuxChromiumSafeStoragePassword } from "../src/providers/chromeSqlite/linuxKeyring.js";
+import {
+	getLinuxChromiumSafeStoragePassword,
+	resolveLinuxKeyringBackend,
+} from "../src/providers/chromeSqlite/linuxKeyring.js";
 
-const itIfLinux = process.platform === "linux" ? it : it.skip;
+const itIfPosix = process.platform === "win32" ? it.skip : it;
+
+const keyringCases = [
+	{
+		app: "chrome" as const,
+		service: "Chrome Safe Storage",
+		account: "Chrome",
+		application: "chrome",
+		folder: "Chrome Keys",
+	},
+	{
+		app: "chromium" as const,
+		service: "Chromium Safe Storage",
+		account: "Chromium",
+		application: "chromium",
+		folder: "Chromium Keys",
+	},
+	{
+		app: "brave" as const,
+		service: "Brave Safe Storage",
+		account: "Brave",
+		application: "brave",
+		folder: "Brave Keys",
+	},
+];
 
 function prependToPath(dir: string): void {
 	const parts = [dir, process.env.PATH ?? ""].filter(Boolean);
@@ -48,12 +75,59 @@ process.exit(1);
 	}
 }
 
+function writeCommandShim(
+	binDir: string,
+	command: string,
+	responses: Array<{ args: string[]; stdout: string }>,
+): void {
+	mkdirSync(binDir, { recursive: true });
+	const shim = path.join(binDir, command);
+	const script = `#!/usr/bin/env node
+const responses = ${JSON.stringify(responses)};
+const args = process.argv.slice(2);
+const response = responses.find((item) => JSON.stringify(item.args) === JSON.stringify(args));
+if (!response) {
+  process.stderr.write(JSON.stringify(args));
+  process.exit(2);
+}
+process.stdout.write(response.stdout);
+`;
+	writeFileSync(shim, script, { encoding: "utf8" });
+	if (process.platform !== "win32") {
+		chmodSync(shim, 0o755);
+	}
+}
+
 describe("linux keyring", () => {
 	beforeEach(() => {
 		vi.unstubAllEnvs();
 	});
 
-	itIfLinux("returns password from service/account lookup when available (Chrome)", async () => {
+	it("selects KWallet for a KDE desktop", () => {
+		vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", "");
+		vi.stubEnv("XDG_CURRENT_DESKTOP", "GNOME:KDE");
+		vi.stubEnv("KDE_FULL_SESSION", "");
+
+		expect(resolveLinuxKeyringBackend()).toBe("kwallet");
+	});
+
+	it("selects GNOME when the desktop is not KDE", () => {
+		vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", "");
+		vi.stubEnv("XDG_CURRENT_DESKTOP", "GNOME");
+		vi.stubEnv("KDE_FULL_SESSION", "");
+
+		expect(resolveLinuxKeyringBackend()).toBe("gnome");
+	});
+
+	it("honors an explicit keyring backend", () => {
+		vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", "basic");
+		vi.stubEnv("XDG_CURRENT_DESKTOP", "KDE");
+		vi.stubEnv("KDE_FULL_SESSION", "true");
+
+		expect(resolveLinuxKeyringBackend()).toBe("basic");
+	});
+
+	itIfPosix("returns password from service/account lookup when available (Chrome)", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-"));
 		const binDir = path.join(dir, "bin");
 
@@ -72,7 +146,7 @@ describe("linux keyring", () => {
 		expect(result.warnings).toEqual([]);
 	});
 
-	itIfLinux(
+	itIfPosix(
 		"falls back to application lookup when service/account returns empty (Chrome)",
 		async () => {
 			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-"));
@@ -95,7 +169,7 @@ describe("linux keyring", () => {
 		},
 	);
 
-	itIfLinux(
+	itIfPosix(
 		"falls back to application lookup when service/account returns empty (Edge)",
 		async () => {
 			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-"));
@@ -118,7 +192,7 @@ describe("linux keyring", () => {
 		},
 	);
 
-	itIfLinux(
+	itIfPosix(
 		"falls back to application lookup when service/account returns empty (Brave)",
 		async () => {
 			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-"));
@@ -140,7 +214,7 @@ describe("linux keyring", () => {
 		},
 	);
 
-	itIfLinux("returns warning when both lookups fail", async () => {
+	itIfPosix("returns warning when both lookups fail", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-"));
 		const binDir = path.join(dir, "bin");
 
@@ -185,6 +259,85 @@ describe("linux keyring", () => {
 		expect(result.password).toBe("brave-override-password");
 		expect(result.warnings).toEqual([]);
 	});
+
+	it("uses Chromium env override when set", async () => {
+		vi.stubEnv("SWEET_COOKIE_CHROMIUM_SAFE_STORAGE_PASSWORD", "chromium-override-password");
+
+		const result = await getLinuxChromiumSafeStoragePassword({
+			backend: "gnome",
+			app: "chromium",
+		});
+
+		expect(result).toEqual({ password: "chromium-override-password", warnings: [] });
+	});
+
+	itIfPosix.each(keyringCases)(
+		"uses exact secret-tool service/account arguments for $app",
+		async ({ app, service, account }) => {
+			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-args-"));
+			const binDir = path.join(dir, "bin");
+			writeCommandShim(binDir, "secret-tool", [
+				{
+					args: ["lookup", "service", service, "account", account],
+					stdout: "service-password\n",
+				},
+			]);
+			prependToPath(binDir);
+
+			const result = await getLinuxChromiumSafeStoragePassword({ backend: "gnome", app });
+
+			expect(result).toEqual({ password: "service-password", warnings: [] });
+		},
+	);
+
+	itIfPosix.each(keyringCases)(
+		"uses exact secret-tool application arguments for $app",
+		async ({ app, service, account, application }) => {
+			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-args-"));
+			const binDir = path.join(dir, "bin");
+			writeCommandShim(binDir, "secret-tool", [
+				{ args: ["lookup", "service", service, "account", account], stdout: "" },
+				{ args: ["lookup", "application", application], stdout: "application-password\n" },
+			]);
+			prependToPath(binDir);
+
+			const result = await getLinuxChromiumSafeStoragePassword({ backend: "gnome", app });
+
+			expect(result).toEqual({ password: "application-password", warnings: [] });
+		},
+	);
+
+	itIfPosix.each(keyringCases)(
+		"uses exact KWallet service and folder arguments for $app",
+		async ({ app, service, folder }) => {
+			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-keyring-args-"));
+			const binDir = path.join(dir, "bin");
+			writeCommandShim(binDir, "dbus-send", [
+				{
+					args: [
+						"--session",
+						"--print-reply=literal",
+						"--dest=org.kde.kwalletd6",
+						"/modules/kwalletd6",
+						"org.kde.KWallet.networkWallet",
+					],
+					stdout: "testwallet\n",
+				},
+			]);
+			writeCommandShim(binDir, "kwallet-query", [
+				{
+					args: ["--read-password", service, "--folder", folder, "testwallet"],
+					stdout: "kwallet-password\n",
+				},
+			]);
+			prependToPath(binDir);
+			vi.stubEnv("KDE_SESSION_VERSION", "6");
+
+			const result = await getLinuxChromiumSafeStoragePassword({ backend: "kwallet", app });
+
+			expect(result).toEqual({ password: "kwallet-password", warnings: [] });
+		},
+	);
 
 	it("returns empty password for basic backend", async () => {
 		const result = await getLinuxChromiumSafeStoragePassword({
