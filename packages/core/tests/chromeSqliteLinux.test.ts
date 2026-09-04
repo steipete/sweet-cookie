@@ -52,6 +52,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		mkdirSync(path.dirname(dbPath), { recursive: true });
 		writeFileSync(dbPath, "", "utf8");
 		vi.stubEnv("HOME", home);
+		vi.stubEnv("USERPROFILE", home);
 		vi.stubEnv("XDG_CONFIG_HOME", path.join(home, ".config"));
 
 		expect(resolveLinuxChromiumCookiesDbs({})).toEqual([]);
@@ -72,6 +73,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		mkdirSync(path.dirname(dbPath), { recursive: true });
 		writeFileSync(dbPath, "", "utf8");
 		vi.stubEnv("HOME", home);
+		vi.stubEnv("USERPROFILE", home);
 		vi.stubEnv("XDG_CONFIG_HOME", path.join(home, ".config"));
 
 		expect(resolveLinuxChromiumCookiesDbs({})).toEqual([
@@ -88,6 +90,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
 		const xdgConfigHome = path.join(home, "xdg");
 		vi.stubEnv("HOME", home);
+		vi.stubEnv("USERPROFILE", home);
 		vi.stubEnv("XDG_CONFIG_HOME", xdgConfigHome);
 
 		const dbPaths = roots(home, xdgConfigHome).map((root, index) =>
@@ -146,6 +149,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		mkdirSync(path.dirname(dbPath), { recursive: true });
 		writeFileSync(dbPath, "", "utf8");
 		vi.stubEnv("HOME", home);
+		vi.stubEnv("USERPROFILE", home);
 		vi.stubEnv("XDG_CONFIG_HOME", path.join(home, ".config"));
 
 		expect(resolveLinuxChromiumCookiesDbs({ profile: dbPath })).toEqual([
@@ -193,6 +197,7 @@ describe("chrome sqlite (linux) discovery", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
 		const xdgConfigHome = path.join(home, "xdg");
 		vi.stubEnv("HOME", home);
+		vi.stubEnv("USERPROFILE", home);
 		vi.stubEnv("XDG_CONFIG_HOME", xdgConfigHome);
 
 		const expected = targetRoots.flatMap(({ browser, roots }) =>

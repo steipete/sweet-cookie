@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Discover Linux Chrome, Chromium, Brave, and Firefox profiles across native, Snap, and Flatpak roots, with Chromium-specific keyring identifiers for `v11` cookies.
+- Discover Linux Chrome, Chromium, Brave, and Firefox profiles across native, Snap, and Flatpak roots, with Chromium-specific keyring identifiers for `v11` cookies. (`#47`, thanks `@LuisUrrutia`)
 
 ## 0.4.2 - 2026-08-28
 
