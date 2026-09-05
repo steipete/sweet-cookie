@@ -15,7 +15,7 @@ function writeCString(buf: Buffer, offset: number, value: string): number {
 	return offset + bytes.length + 1;
 }
 
-function buildSafariBinaryCookiesFile(): Buffer {
+function buildSafariBinaryCookiesFile(rawUrl = "https://chatgpt.com/"): Buffer {
 	const cookie = Buffer.alloc(96);
 	cookie.writeUInt32LE(96, 0);
 	cookie.writeUInt32LE(0, 4);
@@ -29,7 +29,7 @@ function buildSafariBinaryCookiesFile(): Buffer {
 
 	cookie.writeDoubleLE(100, 40); // mac epoch seconds
 
-	writeCString(cookie, 56, "https://chatgpt.com/");
+	writeCString(cookie, 56, rawUrl);
 	writeCString(cookie, 80, "sid");
 	writeCString(cookie, 84, "/");
 	writeCString(cookie, 86, "value");
@@ -99,9 +99,40 @@ describe("safari binarycookies provider", () => {
 		expect(res.cookies).toHaveLength(1);
 		expect(res.cookies[0]?.name).toBe("sid");
 		expect(res.cookies[0]?.domain).toBe("chatgpt.com");
+		expect(res.cookies[0]?.hostOnly).toBe(true);
 		expect(res.cookies[0]?.secure).toBe(true);
 		expect(res.cookies[0]?.httpOnly).toBe(true);
 		expect(res.cookies[0]?.source?.browser).toBe("safari");
+	});
+
+	itIfDarwin("preserves Safari domain-cookie scope", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-safari-"));
+		const file = path.join(dir, "Cookies.binarycookies");
+		writeFileSync(file, buildSafariBinaryCookiesFile(".chatgpt.com"));
+
+		const res = await getCookiesFromSafari(
+			{ includeExpired: true, file },
+			["https://sub.chatgpt.com/"],
+			null,
+		);
+
+		expect(res.cookies).toHaveLength(1);
+		expect(res.cookies[0]?.domain).toBe("chatgpt.com");
+		expect(res.cookies[0]?.hostOnly).toBe(false);
+	});
+
+	itIfDarwin("does not send Safari host-only cookies to subdomains", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-safari-"));
+		const file = path.join(dir, "Cookies.binarycookies");
+		writeFileSync(file, buildSafariBinaryCookiesFile("https://chatgpt.com/"));
+
+		const res = await getCookiesFromSafari(
+			{ includeExpired: true, file },
+			["https://sub.chatgpt.com/"],
+			null,
+		);
+
+		expect(res.cookies).toHaveLength(0);
 	});
 
 	itIfDarwin("filters expired cookies when includeExpired=false", async () => {

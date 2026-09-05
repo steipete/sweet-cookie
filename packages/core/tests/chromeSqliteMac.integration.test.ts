@@ -33,6 +33,7 @@ function encryptChromeCookieValueMac(options: {
 async function createChromiumCookiesDb(options: {
 	dbPath: string;
 	metaVersion: number;
+	partitionColumns?: boolean;
 	rows: Array<{
 		host_key: string;
 		name: string;
@@ -44,8 +45,12 @@ async function createChromiumCookiesDb(options: {
 	const db = new DatabaseSync(options.dbPath);
 	try {
 		db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value INTEGER);");
+		const partitionColumns =
+			options.partitionColumns === false
+				? ""
+				: ", top_frame_site_key TEXT, has_cross_site_ancestor INTEGER";
 		db.exec(
-			"CREATE TABLE cookies (host_key TEXT, name TEXT, value TEXT, encrypted_value BLOB, path TEXT, expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, samesite INTEGER);",
+			`CREATE TABLE cookies (host_key TEXT, name TEXT, value TEXT, encrypted_value BLOB, path TEXT, expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, samesite INTEGER${partitionColumns});`,
 		);
 		db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run("version", options.metaVersion);
 
@@ -118,6 +123,43 @@ describeIfDarwin("chrome sqlite (mac) integration", () => {
 		expect(res.warnings).toEqual([]);
 		expect(res.cookies).toHaveLength(1);
 		expect(res.cookies[0]?.value).toBe("cookie-value");
+	});
+
+	it("reads a real sqlite schema without partition-provenance columns", async () => {
+		vi.resetModules();
+
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-mac-legacy-it-"));
+		const binDir = path.join(dir, "bin");
+		const dbPath = path.join(dir, "Cookies");
+
+		writeShim(binDir, "security", { stdout: "synthetic-password\n", exitCode: 0 });
+		vi.stubEnv("PATH", [binDir, process.env.PATH ?? ""].filter(Boolean).join(path.delimiter));
+
+		await createChromiumCookiesDb({
+			dbPath,
+			metaVersion: 24,
+			partitionColumns: false,
+			rows: [
+				{
+					host_key: "example.com",
+					name: "sid",
+					value: "cookie-value",
+					encrypted_value: new Uint8Array(),
+				},
+			],
+		});
+
+		const { getCookiesFromChromeSqliteMac } = await import("../src/providers/chromeSqliteMac.js");
+		const res = await getCookiesFromChromeSqliteMac(
+			{ profile: dbPath, includeExpired: true },
+			["https://example.com/"],
+			null,
+		);
+
+		expect(res.warnings).toEqual([]);
+		expect(res.cookies).toEqual([
+			expect.objectContaining({ name: "sid", value: "cookie-value", hostOnly: true }),
+		]);
 	});
 
 	it("decrypts a generic custom profile with its explicit Chromium Keychain target", async () => {

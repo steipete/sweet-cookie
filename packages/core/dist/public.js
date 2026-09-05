@@ -40,14 +40,19 @@ export async function getCookies(options) {
     }
     const mode = options.mode ?? parseModeEnv() ?? "merge";
     const inlineSources = await resolveInlineSources(options);
+    let excludedUnsupportedInlineIsolation = false;
     // Inline sources are the most reliable path (they bypass DB locks + keychain prompts).
     // We short-circuit on the first inline source that yields any cookies.
     for (const source of inlineSources) {
         const inlineResult = await getCookiesFromInline(source, origins, names);
         warnings.push(...inlineResult.warnings);
+        excludedUnsupportedInlineIsolation ||= inlineResult.excludedUnsupportedIsolation;
         if (inlineResult.cookies.length) {
             return { cookies: inlineResult.cookies, warnings };
         }
+    }
+    if (excludedUnsupportedInlineIsolation) {
+        return { cookies: [], warnings };
     }
     const merged = new Map();
     const mergedPrimaryKeys = new Set();
@@ -128,7 +133,7 @@ export async function getCookies(options) {
                 const safariResult = await getCookiesFromSafari(fileOptions, origins, names);
                 safariWarnings.push(...safariResult.warnings);
                 for (const cookie of safariResult.cookies) {
-                    const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}`;
+                    const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}`;
                     if (!safariCookies.has(key)) {
                         safariCookies.set(key, cookie);
                     }
@@ -169,9 +174,10 @@ export async function getCookies(options) {
 function mergeCookieKey(cookie, options) {
     const domain = cookie.domain ?? "";
     const pathValue = cookie.path ?? "";
+    const scope = cookie.hostOnly === true ? "host" : "domain";
     const profile = options.includeProfileInKey ? (cookie.source?.profile ?? "") : "";
     const storeId = options.includeStoreInKey ? (cookie.source?.storeId ?? "") : "";
-    return `${cookie.name}|${domain}|${pathValue}|${profile}|${storeId}`;
+    return `${cookie.name}|${domain}|${scope}|${pathValue}|${profile}|${storeId}`;
 }
 async function collectProfileResults(readProfile, profile) {
     const selectors = normalizeProfileSelectors(profile);
@@ -184,7 +190,7 @@ async function collectProfileResults(readProfile, profile) {
         for (const cookie of result.cookies) {
             const profileKey = includeProfileInKey ? (cookie.source?.profile ?? "") : "";
             const storeKey = cookie.source?.storeId ?? "";
-            const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profileKey}|${storeKey}`;
+            const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}|${profileKey}|${storeKey}`;
             if (!merged.has(key)) {
                 merged.set(key, cookie);
             }

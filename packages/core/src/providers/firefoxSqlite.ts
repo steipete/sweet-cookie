@@ -63,18 +63,44 @@ async function getCookiesFromFirefoxDb(
 	const now = Math.floor(Date.now() / 1000);
 	const where = buildHostWhereClause(hosts);
 	const expiryClause = options.includeExpired ? "" : ` AND (expiry = 0 OR expiry > ${now})`;
+	const bunRuntime = isBunRuntime();
+	const sqliteLabel = bunRuntime ? "bun:sqlite" : "node:sqlite";
+	const columnsSql = "PRAGMA table_info(moz_cookies);";
+	const columnsResult = bunRuntime
+		? await queryFirefoxCookiesWithBunSqlite(tempDbPath, columnsSql)
+		: await queryFirefoxCookiesWithNodeSqlite(tempDbPath, columnsSql);
+	if (!columnsResult.ok) {
+		rmSync(tempDir, { recursive: true, force: true });
+		warnings.push(`${sqliteLabel} failed reading Firefox cookies: ${columnsResult.error}`);
+		return { cookies: [], warnings };
+	}
+	const columnNames = new Set(
+		columnsResult.rows.flatMap((row) => (typeof row.name === "string" ? [row.name] : [])),
+	);
+	const originAttributesColumn = columnNames.has("originAttributes")
+		? "originAttributes"
+		: "'' AS originAttributes";
+	const partitionedColumn = columnNames.has("isPartitionedAttributeSet")
+		? "isPartitionedAttributeSet"
+		: "0 AS isPartitionedAttributeSet";
 	const sql =
-		`SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite ` +
+		`SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite, ${originAttributesColumn}, ${partitionedColumn} ` +
 		`FROM moz_cookies WHERE (${where})${expiryClause} ORDER BY expiry DESC;`;
 
 	try {
-		if (isBunRuntime()) {
+		if (bunRuntime) {
 			const bunResult = await queryFirefoxCookiesWithBunSqlite(tempDbPath, sql);
 			if (!bunResult.ok) {
 				warnings.push(`bun:sqlite failed reading Firefox cookies: ${bunResult.error}`);
 				return { cookies: [], warnings };
 			}
-			const cookies = collectFirefoxCookiesFromRows(bunResult.rows, options, hosts, allowlistNames);
+			const cookies = collectFirefoxCookiesFromRows(
+				bunResult.rows,
+				options,
+				hosts,
+				allowlistNames,
+				warnings,
+			);
 			return { cookies: dedupeCookies(cookies), warnings };
 		}
 
@@ -83,7 +109,13 @@ async function getCookiesFromFirefoxDb(
 			warnings.push(`node:sqlite failed reading Firefox cookies: ${nodeResult.error}`);
 			return { cookies: [], warnings };
 		}
-		const cookies = collectFirefoxCookiesFromRows(nodeResult.rows, options, hosts, allowlistNames);
+		const cookies = collectFirefoxCookiesFromRows(
+			nodeResult.rows,
+			options,
+			hosts,
+			allowlistNames,
+			warnings,
+		);
 		return { cookies: dedupeCookies(cookies), warnings };
 	} finally {
 		rmSync(tempDir, { recursive: true, force: true });
@@ -99,6 +131,8 @@ type FirefoxRow = {
 	isSecure?: unknown;
 	isHttpOnly?: unknown;
 	sameSite?: unknown;
+	originAttributes?: unknown;
+	isPartitionedAttributeSet?: unknown;
 };
 
 async function queryFirefoxCookiesWithNodeSqlite(
@@ -142,9 +176,11 @@ function collectFirefoxCookiesFromRows(
 	options: { profile?: string; includeExpired?: boolean },
 	hosts: string[],
 	allowlistNames: Set<string> | null,
+	warnings: string[],
 ): Cookie[] {
 	const now = Math.floor(Date.now() / 1000);
 	const cookies: Cookie[] = [];
+	let partitionedCookieCount = 0;
 
 	for (const row of rows) {
 		const name = typeof row.name === "string" ? row.name : null;
@@ -159,6 +195,16 @@ function collectFirefoxCookiesFromRows(
 			continue;
 		}
 		if (!hostMatchesAny(hosts, host)) {
+			continue;
+		}
+		const originAttributes =
+			typeof row.originAttributes === "string" ? row.originAttributes.trim() : "";
+		const partitionedAttribute =
+			row.isPartitionedAttributeSet === 1 ||
+			row.isPartitionedAttributeSet === "1" ||
+			row.isPartitionedAttributeSet === true;
+		if (originAttributes || partitionedAttribute) {
+			partitionedCookieCount++;
 			continue;
 		}
 
@@ -180,6 +226,7 @@ function collectFirefoxCookiesFromRows(
 			name,
 			value,
 			domain: host.startsWith(".") ? host.slice(1) : host,
+			hostOnly: !host.startsWith("."),
 			path: cookiePath || "/",
 			secure: isSecure,
 			httpOnly: isHttpOnly,
@@ -206,6 +253,11 @@ function collectFirefoxCookiesFromRows(
 		cookie.source = source;
 
 		cookies.push(cookie);
+	}
+	if (partitionedCookieCount > 0) {
+		warnings.push(
+			`${partitionedCookieCount} partitioned or container-scoped Firefox cookie(s) were excluded because replay cannot preserve their origin attributes.`,
+		);
 	}
 
 	return cookies;
@@ -333,14 +385,31 @@ function copySidecar(sourceDbPath: string, target: string, suffix: "-wal" | "-sh
 function buildHostWhereClause(hosts: string[]): string {
 	const clauses: string[] = [];
 	for (const host of hosts) {
-		const escaped = sqlLiteral(host);
-		const escapedDot = sqlLiteral(`.${host}`);
-		const escapedLike = sqlLiteral(`%.${host}`);
-		clauses.push(`host = ${escaped}`);
-		clauses.push(`host = ${escapedDot}`);
-		clauses.push(`host LIKE ${escapedLike}`);
+		for (const candidate of expandHostCandidates(host)) {
+			const escaped = sqlLiteral(candidate);
+			const escapedDot = sqlLiteral(`.${candidate}`);
+			const escapedLike = sqlLiteral(`%.${candidate}`);
+			clauses.push(`host = ${escaped}`);
+			clauses.push(`host = ${escapedDot}`);
+			clauses.push(`host LIKE ${escapedLike}`);
+		}
 	}
 	return clauses.length ? clauses.join(" OR ") : "1=0";
+}
+
+function expandHostCandidates(host: string): string[] {
+	const parts = host.split(".").filter(Boolean);
+	if (parts.length <= 1) {
+		return [host];
+	}
+	const candidates = new Set<string>([host]);
+	for (let index = 1; index <= parts.length - 2; index += 1) {
+		const candidate = parts.slice(index).join(".");
+		if (candidate) {
+			candidates.add(candidate);
+		}
+	}
+	return Array.from(candidates);
 }
 
 function sqlLiteral(value: string): string {
@@ -394,15 +463,16 @@ function normalizeFirefoxSameSite(raw?: string): CookieSameSite | undefined {
 }
 
 function hostMatchesAny(hosts: string[], cookieHost: string): boolean {
-	const cookieDomain = cookieHost.startsWith(".") ? cookieHost.slice(1) : cookieHost;
-	return hosts.some((host) => hostMatchesCookieDomain(host, cookieDomain));
+	const hostOnly = !cookieHost.startsWith(".");
+	const cookieDomain = hostOnly ? cookieHost : cookieHost.slice(1);
+	return hosts.some((host) => hostMatchesCookieDomain(host, cookieDomain, hostOnly));
 }
 
 function dedupeCookies(cookies: Cookie[], options: { includeProfile?: boolean } = {}): Cookie[] {
 	const merged = new Map<string, Cookie>();
 	for (const cookie of cookies) {
 		const profile = options.includeProfile ? (cookie.source?.profile ?? "") : "";
-		const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}|${profile}`;
+		const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}|${profile}`;
 		if (!merged.has(key)) {
 			merged.set(key, cookie);
 		}

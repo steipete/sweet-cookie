@@ -53,7 +53,7 @@ async function createChromiumCookiesDb(options: {
 	try {
 		db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value INTEGER);");
 		db.exec(
-			"CREATE TABLE cookies (host_key TEXT, name TEXT, value TEXT, encrypted_value BLOB, path TEXT, expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, samesite INTEGER);",
+			"CREATE TABLE cookies (host_key TEXT, name TEXT, value TEXT, encrypted_value BLOB, path TEXT, expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, samesite INTEGER, top_frame_site_key TEXT, has_cross_site_ancestor INTEGER);",
 		);
 
 		db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run("version", options.metaVersion);

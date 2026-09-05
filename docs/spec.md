@@ -67,7 +67,7 @@ High-signal options:
 
 ### Provider order
 
-1. Inline sources (if any). First non-empty wins; local browsers are skipped once inline yields cookies.
+1. Inline sources (if any). First non-empty wins; local browsers are skipped once inline yields cookies. If unsupported isolation is found and no later inline source yields cookies, return no cookies rather than falling back to local browser stores.
 2. Local browsers in declared order:
    - **Chrome**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)
@@ -94,8 +94,10 @@ High-signal options:
 `Cookie[]` is “CDP-ish” and tool-friendly:
 
 - `name`, `value`, `domain`, `path`
-- optional: `expires` (unix seconds), `secure`, `httpOnly`, `sameSite`
+- optional: `hostOnly`, `expires` (unix seconds), `secure`, `httpOnly`, `sameSite`
 - `source` includes `browser` and optional `profile` (for debugging)
+
+`hostOnly: true` requires an exact hostname match. Domain cookies can match subdomains. Partitioned Chromium cookies and Firefox partitioned or container-scoped cookies are excluded because the output format cannot preserve their isolation context.
 
 ## Extension (`apps/extension`)
 
@@ -195,13 +197,14 @@ Steps:
 1. Normalize origins (force trailing `/`, drop query/hash)
 2. For each origin:
    - Query `chrome.cookies.getAll({ url: origin })`
-3. Merge + dedupe:
-   - key = `${cookie.name}|${cookie.domain}|${cookie.path}|${cookie.storeId}`
-4. Filter:
+3. Exclude cookies with a `partitionKey`; the export format cannot preserve their isolation context
+4. Merge + dedupe:
+   - key = `${cookie.name}|${cookie.domain}|${cookie.hostOnly}|${cookie.path}|${cookie.storeId}`
+5. Filter:
    - if allowlist is present: keep only matching cookie names
-5. Serialize:
+6. Serialize:
    - Map Chrome extension cookie fields to Sweet Cookie cookie fields:
-     - `name`, `value`, `domain`, `path`
+     - `name`, `value`, `domain`, `hostOnly`, `path`
      - `secure`, `httpOnly`
      - `sameSite` (map Chrome enum to `Strict|Lax|None` strings)
      - `expires`: from `expirationDate` (seconds); omit if missing

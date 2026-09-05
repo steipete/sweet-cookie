@@ -1,1 +1,1 @@
-{"version":3,"file":"hostMatch.d.ts","sourceRoot":"","sources":["../../src/util/hostMatch.ts"],"names":[],"mappings":"AAAA,wBAAgB,uBAAuB,CAAC,IAAI,EAAE,MAAM,EAAE,YAAY,EAAE,MAAM,GAAG,OAAO,CAKnF"}
+{"version":3,"file":"hostMatch.d.ts","sourceRoot":"","sources":["../../src/util/hostMatch.ts"],"names":[],"mappings":"AAAA,wBAAgB,uBAAuB,CACtC,IAAI,EAAE,MAAM,EACZ,YAAY,EAAE,MAAM,EACpB,QAAQ,UAAQ,GACd,OAAO,CAOT"}

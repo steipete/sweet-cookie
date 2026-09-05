@@ -58,6 +58,7 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
     const now = Math.floor(Date.now() / 1000);
     let warnedEncryptedType = false;
     let v20DecryptFailureCount = 0;
+    let partitionedCookieCount = 0;
     for (const row of rows) {
         const name = typeof row.name === "string" ? row.name : null;
         if (!name) {
@@ -71,6 +72,11 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
             continue;
         }
         if (!hostMatchesAny(hosts, hostKey)) {
+            continue;
+        }
+        const topFrameSiteKey = typeof row.top_frame_site_key === "string" ? row.top_frame_site_key.trim() : "";
+        if (topFrameSiteKey) {
+            partitionedCookieCount++;
             continue;
         }
         const rowPath = typeof row.path === "string" ? row.path : "";
@@ -125,6 +131,7 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
             name,
             value,
             domain: hostKey.startsWith(".") ? hostKey.slice(1) : hostKey,
+            hostOnly: !hostKey.startsWith("."),
             path: rowPath || "/",
             secure,
             httpOnly,
@@ -141,6 +148,9 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
     if (v20DecryptFailureCount > 0) {
         warnings.push(`${v20DecryptFailureCount} Chromium cookie(s) use v20 App-Bound Encryption and could not be decrypted. ` +
             "Use the extension exporter or Chrome DevTools Protocol for those cookies.");
+    }
+    if (partitionedCookieCount > 0) {
+        warnings.push(`${partitionedCookieCount} partitioned Chromium cookie(s) were excluded because replay cannot preserve their partition key.`);
     }
     return cookies;
 }
@@ -229,15 +239,28 @@ async function readChromeRows(dbPath, where) {
         ? "CAST(expires_utc AS TEXT) AS expires_utc"
         : "expires_utc";
     const expiresOrder = needsTextExpires ? "cookies.expires_utc" : "expires_utc";
+    const columnsResult = await queryNodeOrBun({
+        kind: sqliteKind,
+        dbPath,
+        sql: "PRAGMA table_info(cookies);",
+    });
+    if (!columnsResult.ok) {
+        return {
+            ok: false,
+            error: `${sqliteLabel} failed reading Chrome cookies: ${columnsResult.error}`,
+        };
+    }
+    const columnNames = new Set(columnsResult.rows.flatMap((row) => (typeof row["name"] === "string" ? [row["name"]] : [])));
+    const partitionKeyColumn = columnNames.has("top_frame_site_key")
+        ? "top_frame_site_key"
+        : "'' AS top_frame_site_key";
     const sql = `SELECT name, value, host_key, path, ${expiresColumn}, samesite, encrypted_value, ` +
-        `is_secure AS is_secure, is_httponly AS is_httponly ` +
+        `is_secure AS is_secure, is_httponly AS is_httponly, ${partitionKeyColumn} ` +
         `FROM cookies WHERE (${where}) ORDER BY ${expiresOrder} DESC;`;
     const result = await queryNodeOrBun({ kind: sqliteKind, dbPath, sql });
     if (result.ok) {
         return { ok: true, rows: result.rows };
     }
-    // Intentionally strict: only support modern Chromium cookie DB schemas.
-    // If this fails, assume the local Chrome/Chromium is too old or uses a non-standard schema.
     return {
         ok: false,
         error: `${sqliteLabel} failed reading Chrome cookies (requires modern Chromium, e.g. Chrome >= 100): ${result.error}`,
@@ -326,13 +349,14 @@ function expandHostCandidates(host) {
     return Array.from(candidates);
 }
 function hostMatchesAny(hosts, cookieHost) {
-    const cookieDomain = cookieHost.startsWith(".") ? cookieHost.slice(1) : cookieHost;
-    return hosts.some((host) => hostMatchesCookieDomain(host, cookieDomain));
+    const hostOnly = !cookieHost.startsWith(".");
+    const cookieDomain = hostOnly ? cookieHost : cookieHost.slice(1);
+    return hosts.some((host) => hostMatchesCookieDomain(host, cookieDomain, hostOnly));
 }
 function dedupeCookies(cookies) {
     const merged = new Map();
     for (const cookie of cookies) {
-        const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.path ?? ""}`;
+        const key = `${cookie.name}|${cookie.domain ?? ""}|${cookie.hostOnly === true ? "host" : "domain"}|${cookie.path ?? ""}`;
         if (!merged.has(key)) {
             merged.set(key, cookie);
         }

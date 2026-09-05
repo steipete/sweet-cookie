@@ -56,6 +56,28 @@ describe("util", () => {
 		expect(hostMatchesCookieDomain("example.com", "chatgpt.com")).toBe(false);
 	});
 
+	it("hostMatchesCookieDomain() requires exact matches for host-only cookies", () => {
+		expect(hostMatchesCookieDomain("chatgpt.com", "chatgpt.com", true)).toBe(true);
+		expect(hostMatchesCookieDomain("a.chatgpt.com", "chatgpt.com", true)).toBe(false);
+	});
+
+	it("obeys the host-only and domain-cookie matching laws across hostname depths", () => {
+		const domains = ["example.com", "service.example.co.uk", "LOCALHOST"];
+		const prefixes = ["a", "deep.branch", "mixed-Case"];
+
+		for (const domain of domains) {
+			expect(hostMatchesCookieDomain(domain.toUpperCase(), domain, true)).toBe(true);
+			expect(hostMatchesCookieDomain(domain.toUpperCase(), domain, false)).toBe(true);
+
+			for (const prefix of prefixes) {
+				const descendant = `${prefix}.${domain}`;
+				expect(hostMatchesCookieDomain(descendant, domain, true)).toBe(false);
+				expect(hostMatchesCookieDomain(descendant, domain, false)).toBe(true);
+				expect(hostMatchesCookieDomain(`not-${domain}`, domain, false)).toBe(false);
+			}
+		}
+	});
+
 	it("tryDecodeBase64Json() decodes base64 strings", () => {
 		const input = JSON.stringify({ ok: true });
 		const base64 = Buffer.from(input, "utf8").toString("base64");

@@ -4,12 +4,13 @@ import { readTextFileIfExists } from "../util/fs.js";
 import { hostMatchesCookieDomain } from "../util/hostMatch.js";
 
 type InlineSource = { source: string; payload: string };
+type InlineCookiesResult = GetCookiesResult & { excludedUnsupportedIsolation: boolean };
 
 export async function getCookiesFromInline(
 	inline: InlineSource,
 	origins: string[],
 	allowlistNames: Set<string> | null,
-): Promise<GetCookiesResult> {
+): Promise<InlineCookiesResult> {
 	const warnings: string[] = [];
 
 	// Inline sources can be:
@@ -28,12 +29,13 @@ export async function getCookiesFromInline(
 	const decoded = tryDecodeBase64Json(rawPayload) ?? rawPayload;
 	const parsed = tryParseCookiePayload(decoded);
 	if (!parsed) {
-		return { cookies: [], warnings };
+		return { cookies: [], warnings, excludedUnsupportedIsolation: false };
 	}
 
 	const hostAllow = new Set(origins.map((o) => new URL(o).hostname));
 
 	const cookies: Cookie[] = [];
+	let isolatedCookieCount = 0;
 	for (const cookie of parsed.cookies) {
 		if (!cookie?.name) {
 			continue;
@@ -41,14 +43,54 @@ export async function getCookiesFromInline(
 		if (allowlistNames && allowlistNames.size > 0 && !allowlistNames.has(cookie.name)) {
 			continue;
 		}
+		if (hasUnsupportedIsolationProvenance(cookie)) {
+			isolatedCookieCount++;
+			continue;
+		}
 		const domain = cookie.domain ?? (cookie.url ? safeHostnameFromUrl(cookie.url) : undefined);
-		if (domain && hostAllow.size > 0 && !matchesAnyHost(hostAllow, domain)) {
+		if (
+			domain &&
+			hostAllow.size > 0 &&
+			!matchesAnyHost(hostAllow, domain, cookie.hostOnly === true)
+		) {
 			continue;
 		}
 		cookies.push(cookie);
 	}
+	if (isolatedCookieCount > 0) {
+		warnings.push(
+			`${isolatedCookieCount} inline cookie(s) with partition or container provenance were excluded because replay cannot preserve their isolation context.`,
+		);
+	}
 
-	return { cookies, warnings };
+	return {
+		cookies,
+		warnings,
+		excludedUnsupportedIsolation: isolatedCookieCount > 0,
+	};
+}
+
+function hasUnsupportedIsolationProvenance(cookie: Cookie): boolean {
+	const value = cookie as unknown;
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		record["partitionKeyOpaque"] === true ||
+		(record["partitionKey"] !== undefined && record["partitionKey"] !== null)
+	) {
+		return true;
+	}
+	const topFrameSiteKey =
+		typeof record["top_frame_site_key"] === "string" ? record["top_frame_site_key"].trim() : "";
+	const originAttributes =
+		typeof record["originAttributes"] === "string" ? record["originAttributes"].trim() : "";
+	const partitionedAttribute =
+		record["isPartitionedAttributeSet"] === 1 ||
+		record["isPartitionedAttributeSet"] === "1" ||
+		record["isPartitionedAttributeSet"] === true;
+	return Boolean(topFrameSiteKey || originAttributes || partitionedAttribute);
 }
 
 function tryParseCookiePayload(input: string): { cookies: Cookie[] } | null {
@@ -74,9 +116,9 @@ function tryParseCookiePayload(input: string): { cookies: Cookie[] } | null {
 	}
 }
 
-function matchesAnyHost(hosts: Set<string>, cookieDomain: string): boolean {
+function matchesAnyHost(hosts: Set<string>, cookieDomain: string, hostOnly: boolean): boolean {
 	for (const host of hosts) {
-		if (hostMatchesCookieDomain(host, cookieDomain)) {
+		if (hostMatchesCookieDomain(host, cookieDomain, hostOnly)) {
 			return true;
 		}
 	}
