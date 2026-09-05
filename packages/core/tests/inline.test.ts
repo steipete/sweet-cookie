@@ -93,6 +93,8 @@ describe("inline provider", () => {
 		const rejectedMarkers: Record<string, unknown>[] = [
 			{ partitionKey: {} },
 			{ partitionKey: "" },
+			{ partitionKeyOpaque: true },
+			{ partitionKey: null, partitionKeyOpaque: true },
 			{ top_frame_site_key: "https://top.example" },
 			{ originAttributes: "^userContextId=2" },
 			{ isPartitionedAttributeSet: 1 },
@@ -102,6 +104,7 @@ describe("inline provider", () => {
 		const acceptedMarkers: Record<string, unknown>[] = [
 			{},
 			{ partitionKey: null },
+			{ partitionKeyOpaque: false },
 			{ top_frame_site_key: "   " },
 			{ originAttributes: "" },
 			{ isPartitionedAttributeSet: 0 },

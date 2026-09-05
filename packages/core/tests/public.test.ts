@@ -127,7 +127,11 @@ describe("public API", () => {
 		expect(subdomain.warnings).toEqual(exactHost.warnings);
 	});
 
-	it("does not fall back to browser stores after rejecting inline isolation", async () => {
+	it.each([
+		{ partitionKey: { topLevelSite: "https://example.com" } },
+		{ partitionKeyOpaque: true },
+		{ partitionKey: null, partitionKeyOpaque: true },
+	])("does not fall back to browser stores after rejecting inline isolation %j", async (marker) => {
 		vi.resetModules();
 		const readChrome = vi.fn(async () => ({ cookies: [], warnings: [] }));
 		vi.doMock("../src/providers/chrome.js", () => ({ getCookiesFromChrome: readChrome }));
@@ -142,7 +146,7 @@ describe("public API", () => {
 							name: "partitioned",
 							value: "redacted",
 							domain: "chatgpt.com",
-							partitionKey: { topLevelSite: "https://example.com" },
+							...marker,
 						},
 					],
 				}),

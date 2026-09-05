@@ -76,7 +76,10 @@ function hasUnsupportedIsolationProvenance(cookie: Cookie): boolean {
 		return false;
 	}
 	const record = value as Record<string, unknown>;
-	if (record["partitionKey"] !== undefined && record["partitionKey"] !== null) {
+	if (
+		record["partitionKeyOpaque"] === true ||
+		(record["partitionKey"] !== undefined && record["partitionKey"] !== null)
+	) {
 		return true;
 	}
 	const topFrameSiteKey =
