@@ -53,9 +53,18 @@ const CHROMIUM_BROWSER_TARGETS = [
 			label: "Chromium Safe Storage",
 		},
 	},
+	{
+		id: "dia" as const,
+		root: "Dia/User Data",
+		keychain: {
+			account: "Dia",
+			services: ["Dia Safe Storage"],
+			label: "Dia Safe Storage",
+		},
+	},
 ];
 
-export type ChromiumBrowserId = "chrome" | "brave" | "arc" | "chromium";
+export type ChromiumBrowserId = "chrome" | "brave" | "arc" | "chromium" | "dia";
 
 export async function getCookiesFromChromeSqliteMac(
 	options: {

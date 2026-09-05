@@ -15,7 +15,7 @@ Options:
   --edge-profile <value>        Edge profile selector/path.
   --firefox-profile <value>     Firefox profile selector/path.
   --safari-cookies-file <path>  Safari Cookies.binarycookies override.
-  --chromium-browser <name>     macOS/Linux chrome target: chrome, brave, arc, chromium (Arc is macOS-only).
+  --chromium-browser <name>     macOS/Linux chrome target: chrome, brave, arc, chromium, dia (Arc and Dia are macOS-only).
   --mode <merge|first>          Browser merge mode. Default: merge.
   --include-expired             Include expired cookies.
   --timeout-ms <ms>             OS helper timeout.
@@ -99,7 +99,11 @@ export function parseCliArgs(args) {
                 safariCookiesFile = value;
             }
             else if (name === "--chromium-browser") {
-                if (value !== "chrome" && value !== "brave" && value !== "arc" && value !== "chromium") {
+                if (value !== "chrome" &&
+                    value !== "brave" &&
+                    value !== "arc" &&
+                    value !== "chromium" &&
+                    value !== "dia") {
                     return fail(`Invalid --chromium-browser: ${value}`);
                 }
                 chromiumBrowser = value;

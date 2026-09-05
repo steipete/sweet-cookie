@@ -94,6 +94,14 @@ describe("CLI", () => {
 		});
 	});
 
+	it("parses dia as a valid --chromium-browser", () => {
+		const parsed = parseCliArgs(["example.com", "--chromium-browser", "dia"]);
+		expect(parsed).toMatchObject({
+			ok: true,
+			options: { chromiumBrowser: "dia" },
+		});
+	});
+
 	it("rejects invalid browsers", () => {
 		const parsed = parseCliArgs(["github.com", "--browser", "opera"]);
 		expect(parsed).toMatchObject({

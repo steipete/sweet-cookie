@@ -219,6 +219,58 @@ describe("chrome sqlite (mac) keychain selection", () => {
 		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
 	});
 
+	itIfDarwin("searches the Dia root and keychain when chromiumBrowser is dia", async () => {
+		vi.resetModules();
+
+		const readKeychainGenericPasswordFirst = vi
+			.fn()
+			.mockResolvedValue({ ok: true, password: "pw" });
+		const getCookiesFromChromeSqliteDb = vi.fn().mockResolvedValue({ cookies: [], warnings: [] });
+		const resolveCookiesDbsFromProfileOrRoots = vi.fn().mockReturnValue([
+			{
+				dbPath: "/Users/test/Library/Application Support/Dia/User Data/Default/Cookies",
+				profile: "Default",
+			},
+		]);
+
+		vi.doMock("../src/providers/chromium/macosKeychain.js", () => ({
+			readKeychainGenericPasswordFirst,
+		}));
+		vi.doMock("../src/providers/chromium/paths.js", () => ({
+			resolveCookiesDbsFromProfileOrRoots,
+		}));
+		vi.doMock("../src/providers/chromeSqlite/shared.js", () => ({
+			getCookiesFromChromeSqliteDb,
+		}));
+		vi.doMock("../src/providers/chromeSqlite/crypto.js", () => ({
+			decryptChromiumAes128CbcCookieValue: vi.fn(),
+			deriveAes128CbcKeyFromPassword: () => new Uint8Array(),
+		}));
+
+		const { getCookiesFromChromeSqliteMac } = await import("../src/providers/chromeSqliteMac.js");
+
+		await getCookiesFromChromeSqliteMac(
+			{ profile: "Default", chromiumBrowser: "dia" },
+			["https://example.com"],
+			null,
+		);
+
+		expect(resolveCookiesDbsFromProfileOrRoots).toHaveBeenCalledWith(
+			expect.objectContaining({
+				profile: "Default",
+				roots: [expect.stringContaining("/Library/Application Support/Dia/User Data")],
+			}),
+		);
+		expect(readKeychainGenericPasswordFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				account: "Dia",
+				services: ["Dia Safe Storage"],
+				label: "Dia Safe Storage",
+			}),
+		);
+		expect(getCookiesFromChromeSqliteDb).toHaveBeenCalled();
+	});
+
 	itIfDarwin("defaults to Chrome and Brave roots when chromiumBrowser is omitted", async () => {
 		vi.resetModules();
 

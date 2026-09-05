@@ -61,7 +61,7 @@ await getCookies({
 Notes:
 
 - `profile` is a shared alias for `chromeProfile` / `edgeProfile`.
-- `chromiumBrowser` pins the macOS or Linux `chrome` backend to `chrome`, `brave`, `arc`, or `chromium`; Arc is macOS-only.
+- `chromiumBrowser` pins the macOS or Linux `chrome` backend to `chrome`, `brave`, `arc`, `chromium`, or `dia`; Arc and Dia are macOS-only.
 - On macOS, `chromiumBrowser` also selects the matching Keychain entry, including for custom profile paths.
 - Inline payloads win first; otherwise local backends run in declared order.
 - Cookie results preserve `hostOnly`; exact-host and domain scope remain distinct during filtering and deduplication.
