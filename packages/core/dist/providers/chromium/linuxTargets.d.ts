@@ -1,7 +1,7 @@
 import type { GetCookiesOptions } from "../../types.js";
 import { type ChromiumProfileSelector, type ResolvedCookiesDb } from "./paths.js";
 type ChromiumBrowserId = NonNullable<GetCookiesOptions["chromiumBrowser"]>;
-type LinuxChromiumBrowserId = Exclude<ChromiumBrowserId, "arc">;
+type LinuxChromiumBrowserId = Exclude<ChromiumBrowserId, "arc" | "dia">;
 export type ResolvedLinuxChromiumCookiesDb = ResolvedCookiesDb & {
     browser: LinuxChromiumBrowserId;
     keyringApp: LinuxChromiumBrowserId;

@@ -46,6 +46,17 @@ describe("chrome sqlite (linux) discovery", () => {
 		vi.unstubAllEnvs();
 	});
 
+	it.each(["arc", "dia"] as const)(
+		"does not resolve the macOS-only %s target on Linux",
+		(chromiumBrowser) => {
+			const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
+			const dbPath = path.join(home, "custom-profile", "Cookies");
+			mkdirSync(path.dirname(dbPath), { recursive: true });
+			writeFileSync(dbPath, "", "utf8");
+			expect(resolveLinuxChromiumCookiesDbs({ chromiumBrowser, profile: dbPath })).toEqual([]);
+		},
+	);
+
 	it("keeps unpinned default discovery scoped to Chrome", () => {
 		const home = mkdtempSync(path.join(tmpdir(), "sweet-cookie-linux-targets-"));
 		const dbPath = path.join(home, "snap", "chromium", "common", "chromium", "Default", "Cookies");
