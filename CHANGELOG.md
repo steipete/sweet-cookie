@@ -2,13 +2,17 @@
 
 ## 0.4.3 - Unreleased
 
-**Highlights:** Correct cookie scope and isolation, more reliable Linux profile discovery, and macOS Chromium Keychain selection.
+**Highlights:** Correct cookie scope and isolation, Dia support on macOS, and improved Linux profile discovery and macOS Keychain selection.
 
 ### Fixed
 
 - Preserve host-only cookie scope and exclude partitioned or container-scoped cookies, including opaque CDP partitions, whose isolation cannot be replayed. (`#42`, thanks `@0thernet`)
 - Discover Linux Chrome, Chromium, Brave, and Firefox profiles across native, Snap, and Flatpak roots, with Chromium-specific keyring identifiers for `v11` cookies. (`#47`, thanks `@LuisUrrutia`)
 - Use the explicitly selected macOS Chromium browser's Keychain entry when a custom profile path does not identify its browser. (`#43`, thanks `@0thernet`)
+
+### Added
+
+- Support the Dia browser on macOS through the `chrome` backend via `chromiumBrowser: "dia"` and `--chromium-browser dia`. (`#40`, thanks `@yoyooyooo`)
 
 ### Changed
 

@@ -9,7 +9,7 @@ import {
 } from "./paths.js";
 
 type ChromiumBrowserId = NonNullable<GetCookiesOptions["chromiumBrowser"]>;
-type LinuxChromiumBrowserId = Exclude<ChromiumBrowserId, "arc">;
+type LinuxChromiumBrowserId = Exclude<ChromiumBrowserId, "arc" | "dia">;
 type LinuxChromiumTarget = {
 	[Browser in LinuxChromiumBrowserId]: {
 		id: Browser;

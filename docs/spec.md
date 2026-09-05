@@ -38,7 +38,7 @@ High-signal options:
 - `mode`: `merge` (default) or `first`
 - `profile`: shared Chromium alias (`chromeProfile` / `edgeProfile`); accepts a string, string array, or `ALL_PROFILES`; when omitted, Chromium backends keep their default profile behavior
 - `chromeProfile`: Chrome profile directory, display name from Chromium `Local State`, or path; accepts a string, string array, or `ALL_PROFILES`
-- `chromiumBrowser`: explicit `chrome|brave|arc|chromium` target for the macOS or Linux `chrome` backend; Arc is macOS-only
+- `chromiumBrowser`: explicit `chrome|brave|arc|chromium|dia` target for the macOS or Linux `chrome` backend; Arc and Dia are macOS-only
 - `edgeProfile`: Edge profile directory, display name from Chromium `Local State`, or path; accepts a string, string array, or `ALL_PROFILES`
 - `firefoxProfile`: Firefox profile name/path; accepts a string, string array, or `ALL_PROFILES`
 - `safariCookiesFile`: override path to `Cookies.binarycookies`; accepts a string or string array
@@ -71,7 +71,7 @@ High-signal options:
 2. Local browsers in declared order:
    - **Chrome**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)
-     - macOS default discovery checks Google Chrome and Brave roots; Linux defaults to native and Flatpak Google Chrome roots; `chromiumBrowser` targets native or container roots for Chromium or Brave explicitly
+     - macOS default discovery checks Google Chrome and Brave roots; `chromiumBrowser` can pin Chrome, Brave, Arc, Chromium, or Dia explicitly. Linux defaults to native and Flatpak Google Chrome roots, with explicit targets for Chromium or Brave native and container roots
      - decrypt:
        - macOS: Keychain `security` (Chrome Safe Storage)
        - Windows: DPAPI unwrap (Local State) + AES-GCM
