@@ -60,7 +60,7 @@ for (const warning of warnings) console.warn(warning);
 
 ## Sources and browser support
 
-Sweet Cookie checks inline JSON, base64, or file inputs first. The first inline source that yields cookies wins; otherwise, local browser backends run in order and either merge results or return the first successful result.
+Sweet Cookie checks inline JSON, base64, or file inputs first. The first inline source that yields cookies wins; otherwise, local browser backends run in order and either merge results or return the first successful result. If an inline source contains cookies whose isolation cannot be preserved and no later inline source yields cookies, extraction returns an empty result rather than falling back to local browser stores.
 
 | Source            | macOS | Windows | Linux |
 | ----------------- | ----- | ------- | ----- |
@@ -95,6 +95,8 @@ On Linux, the Chrome backend searches native and Flatpak Google Chrome roots by 
 ## Cookie scope and isolation
 
 Returned cookies preserve `hostOnly`: host-only cookies match exactly one hostname, while domain cookies may match subdomains. Scope is also part of deduplication, so host-only and domain cookies with the same name, normalized domain, and path remain distinct.
+
+Both scoped records can therefore appear in a library result. `toCookieHeader()` retains both by default; pass `{ dedupeByName: true }`, as the CLI does, when the target requires one value per cookie name.
 
 Sweet Cookie excludes Chromium partitioned cookies and Firefox partitioned or container-scoped cookies from local database reads because an ordinary replay cannot preserve their isolation context. Inline payloads carrying partition or container provenance are rejected with a warning for the same reason.
 

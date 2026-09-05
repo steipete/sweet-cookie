@@ -4,12 +4,13 @@ import { readTextFileIfExists } from "../util/fs.js";
 import { hostMatchesCookieDomain } from "../util/hostMatch.js";
 
 type InlineSource = { source: string; payload: string };
+type InlineCookiesResult = GetCookiesResult & { excludedUnsupportedIsolation: boolean };
 
 export async function getCookiesFromInline(
 	inline: InlineSource,
 	origins: string[],
 	allowlistNames: Set<string> | null,
-): Promise<GetCookiesResult> {
+): Promise<InlineCookiesResult> {
 	const warnings: string[] = [];
 
 	// Inline sources can be:
@@ -28,7 +29,7 @@ export async function getCookiesFromInline(
 	const decoded = tryDecodeBase64Json(rawPayload) ?? rawPayload;
 	const parsed = tryParseCookiePayload(decoded);
 	if (!parsed) {
-		return { cookies: [], warnings };
+		return { cookies: [], warnings, excludedUnsupportedIsolation: false };
 	}
 
 	const hostAllow = new Set(origins.map((o) => new URL(o).hostname));
@@ -62,7 +63,11 @@ export async function getCookiesFromInline(
 		);
 	}
 
-	return { cookies, warnings };
+	return {
+		cookies,
+		warnings,
+		excludedUnsupportedIsolation: isolatedCookieCount > 0,
+	};
 }
 
 function hasUnsupportedIsolationProvenance(cookie: Cookie): boolean {

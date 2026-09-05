@@ -40,14 +40,19 @@ export async function getCookies(options) {
     }
     const mode = options.mode ?? parseModeEnv() ?? "merge";
     const inlineSources = await resolveInlineSources(options);
+    let excludedUnsupportedInlineIsolation = false;
     // Inline sources are the most reliable path (they bypass DB locks + keychain prompts).
     // We short-circuit on the first inline source that yields any cookies.
     for (const source of inlineSources) {
         const inlineResult = await getCookiesFromInline(source, origins, names);
         warnings.push(...inlineResult.warnings);
+        excludedUnsupportedInlineIsolation ||= inlineResult.excludedUnsupportedIsolation;
         if (inlineResult.cookies.length) {
             return { cookies: inlineResult.cookies, warnings };
         }
+    }
+    if (excludedUnsupportedInlineIsolation) {
+        return { cookies: [], warnings };
     }
     const merged = new Map();
     const mergedPrimaryKeys = new Set();

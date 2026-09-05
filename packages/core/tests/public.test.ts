@@ -78,6 +78,88 @@ describe("public API", () => {
 		expect(res.cookies.map((c) => c.name)).toEqual(["inline"]);
 	});
 
+	it("preserves inline scope and excludes isolation through the public API", async () => {
+		const inlineCookiesJson = JSON.stringify({
+			cookies: [
+				{
+					name: "sid",
+					value: "host-value",
+					domain: "chatgpt.com",
+					hostOnly: true,
+					path: "/",
+				},
+				{
+					name: "sid",
+					value: "domain-value",
+					domain: "chatgpt.com",
+					hostOnly: false,
+					path: "/",
+				},
+				{
+					name: "isolated",
+					value: "excluded-value",
+					domain: "chatgpt.com",
+					partitionKey: { topLevelSite: "https://example.com" },
+				},
+			],
+		});
+		const { getCookies } = await import("../src/index.js");
+
+		const exactHost = await getCookies({
+			url: "https://chatgpt.com/",
+			inlineCookiesJson,
+		});
+		const subdomain = await getCookies({
+			url: "https://sub.chatgpt.com/",
+			inlineCookiesJson,
+		});
+
+		expect(exactHost.cookies.map(({ name, hostOnly }) => ({ name, hostOnly }))).toEqual([
+			{ name: "sid", hostOnly: true },
+			{ name: "sid", hostOnly: false },
+		]);
+		expect(subdomain.cookies.map(({ name, hostOnly }) => ({ name, hostOnly }))).toEqual([
+			{ name: "sid", hostOnly: false },
+		]);
+		expect(exactHost.warnings).toEqual([
+			"1 inline cookie(s) with partition or container provenance were excluded because replay cannot preserve their isolation context.",
+		]);
+		expect(subdomain.warnings).toEqual(exactHost.warnings);
+	});
+
+	it("does not fall back to browser stores after rejecting inline isolation", async () => {
+		vi.resetModules();
+		const readChrome = vi.fn(async () => ({ cookies: [], warnings: [] }));
+		vi.doMock("../src/providers/chrome.js", () => ({ getCookiesFromChrome: readChrome }));
+
+		try {
+			const { getCookies } = await import("../src/index.js");
+			const res = await getCookies({
+				url: "https://chatgpt.com/",
+				inlineCookiesJson: JSON.stringify({
+					cookies: [
+						{
+							name: "partitioned",
+							value: "redacted",
+							domain: "chatgpt.com",
+							partitionKey: { topLevelSite: "https://example.com" },
+						},
+					],
+				}),
+				browsers: ["chrome"],
+			});
+
+			expect(res.cookies).toEqual([]);
+			expect(res.warnings).toEqual([
+				"1 inline cookie(s) with partition or container provenance were excluded because replay cannot preserve their isolation context.",
+			]);
+			expect(readChrome).not.toHaveBeenCalled();
+		} finally {
+			vi.doUnmock("../src/providers/chrome.js");
+			vi.resetModules();
+		}
+	});
+
 	it("fails closed when the target URL has no filterable origin", async () => {
 		const { getCookies } = await import("../src/index.js");
 		const res = await getCookies({

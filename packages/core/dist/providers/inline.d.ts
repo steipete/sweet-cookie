@@ -3,6 +3,9 @@ type InlineSource = {
     source: string;
     payload: string;
 };
-export declare function getCookiesFromInline(inline: InlineSource, origins: string[], allowlistNames: Set<string> | null): Promise<GetCookiesResult>;
+type InlineCookiesResult = GetCookiesResult & {
+    excludedUnsupportedIsolation: boolean;
+};
+export declare function getCookiesFromInline(inline: InlineSource, origins: string[], allowlistNames: Set<string> | null): Promise<InlineCookiesResult>;
 export {};
 //# sourceMappingURL=inline.d.ts.map

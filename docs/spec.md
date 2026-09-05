@@ -67,7 +67,7 @@ High-signal options:
 
 ### Provider order
 
-1. Inline sources (if any). First non-empty wins; local browsers are skipped once inline yields cookies.
+1. Inline sources (if any). First non-empty wins; local browsers are skipped once inline yields cookies. If unsupported isolation is found and no later inline source yields cookies, return no cookies rather than falling back to local browser stores.
 2. Local browsers in declared order:
    - **Chrome**
      - copy DB → query via `node:sqlite` (Node) or `bun:sqlite` (Bun)
