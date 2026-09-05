@@ -109,7 +109,7 @@ The extension requests host access when you export, runs only after a user actio
 
 ## Development
 
-Repository development requires Node.js 22.13 or newer and pnpm 11.25.
+Repository development requires Node.js 22.13 or newer and pnpm 12.3.4.
 
 ```bash
 pnpm install --frozen-lockfile
