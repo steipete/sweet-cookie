@@ -2,6 +2,10 @@
 
 ## 0.4.4 - Unreleased
 
+### Fixed
+
+- Restore Chromium cookie reads on Node 22 before 22.18 and Node 24 before 24.4 by using the overflow-safe expiry query when the SQLite constructor ignores `readBigInts`. (`#52`, thanks `@Sogl`)
+
 ## 0.4.3 - 2026-09-05
 
 **Highlights:** Correct cookie scope and isolation, Dia support on macOS, and improved Linux profile discovery and macOS Keychain selection.

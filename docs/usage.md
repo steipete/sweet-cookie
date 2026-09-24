@@ -97,6 +97,8 @@ Without an inline result, the configured browser backends run in order. The defa
 
 Local Chromium and Firefox reads copy the cookie database and its journal files to a temporary directory before querying. SQLite comes from `node:sqlite` on Node.js or `bun:sqlite` on Bun; the package has no native Node addon dependency.
 
+Chromium expiry reads use SQLite's `readBigInts` constructor option on Node 22.18+ and 24.4+. Earlier Node releases use a text projection to avoid integer overflow while preserving numeric expiry ordering.
+
 ## Profile selection
 
 Chrome and Edge selectors accept:

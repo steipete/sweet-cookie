@@ -1,1 +1,1 @@
-{"version":3,"file":"nodeSqlite.d.ts","sourceRoot":"","sources":["../../src/util/nodeSqlite.ts"],"names":[],"mappings":"AAAA,KAAK,gBAAgB,GAAG,cAAc,aAAa,CAAC,CAAC;AAIrD,wBAAgB,mBAAmB,IAAI,OAAO,CAS7C;AAmCD,wBAAsB,gBAAgB,IAAI,OAAO,CAAC,gBAAgB,CAAC,CAuBlE"}
+{"version":3,"file":"nodeSqlite.d.ts","sourceRoot":"","sources":["../../src/util/nodeSqlite.ts"],"names":[],"mappings":"AAAA,KAAK,gBAAgB,GAAG,cAAc,aAAa,CAAC,CAAC;AAIrD,wBAAgB,mBAAmB,IAAI,OAAO,CAM7C;AAmCD,wBAAsB,gBAAgB,IAAI,OAAO,CAAC,gBAAgB,CAAC,CAuBlE"}

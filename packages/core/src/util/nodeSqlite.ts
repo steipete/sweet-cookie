@@ -3,14 +3,11 @@ type NodeSqliteModule = typeof import("node:sqlite");
 let cached: NodeSqliteModule | null = null;
 
 export function supportsReadBigInts(): boolean {
-	const [majorRaw] = process.versions.node.split(".");
+	const [majorRaw, minorRaw] = process.versions.node.split(".");
 	const major = Number.parseInt(majorRaw ?? "", 10);
-	if (!Number.isFinite(major)) {
-		return false;
-	}
-	// `node:sqlite` accepts DatabaseSync({ readBigInts: true }) in the supported Node range
-	// for this package (Node >= 22), even though the API remains experimental in older releases.
-	return major >= 22;
+	const minor = Number.parseInt(minorRaw ?? "", 10);
+	// Earlier releases silently ignore the DatabaseSync constructor option.
+	return (major === 22 && minor >= 18) || (major === 24 && minor >= 4) || major > 24;
 }
 
 function shouldSuppressSqliteExperimentalWarning(warning: unknown, args: unknown[]): boolean {
