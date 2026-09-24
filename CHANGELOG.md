@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.4 - Unreleased
+## 0.4.5 - Unreleased
+
+## 0.4.4 - 2026-09-24
+
+**Highlights:** Reliable Chromium cookie reads on early Node 22 and 24 releases without changing runtime requirements.
 
 ### Fixed
 
