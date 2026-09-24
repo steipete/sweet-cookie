@@ -129,7 +129,7 @@ describe("util", () => {
 		expect(timed.stderr).toContain("Timed out");
 	});
 
-	it("supportsReadBigInts() matches the supported Node range", () => {
+	it("supportsReadBigInts() matches the DatabaseSync constructor option versions", () => {
 		const original = process.versions;
 		const setNode = (node: string): void => {
 			Object.defineProperty(process, "versions", {
@@ -138,28 +138,24 @@ describe("util", () => {
 			});
 		};
 
-		// Versions that must enable readBigInts. The Node 24.0-24.3 entries lock in
-		// the fix from f7e594c so the gate cannot regress to the pre-2026-03-08
-		// `major === 24 ? minor >= 4 : false` form, which silently broke Chrome
-		// >=146 cookie reads on every Node version under 24.4. See issue #25.
-		const supported = [
+		const supported = ["22.18.0", "22.22.2", "24.4.0", "24.10.0", "25.0.0", "30.5.1", "99.9.9"];
+
+		const unsupported = [
+			"18.20.4",
+			"20.18.0",
+			"21.7.3",
 			"22.0.0",
 			"22.5.0",
-			"22.11.0",
-			"22.22.2",
+			"22.13.0",
+			"22.14.0",
+			"22.17.1",
 			"23.0.0",
+			"23.11.1",
 			"24.0.0",
 			"24.3.1",
-			"24.4.0",
-			"24.10.0",
-			"25.0.0",
-			"30.5.1",
-			"99.9.9",
+			"",
+			"abc.def.ghi",
 		];
-
-		// Versions that must stay disabled: Node lines without the node:sqlite
-		// surface this package depends on, plus malformed strings.
-		const unsupported = ["18.20.4", "20.18.0", "21.7.3", "21.9.0", "", "abc.def.ghi"];
 
 		try {
 			for (const version of supported) {

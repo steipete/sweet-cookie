@@ -233,7 +233,7 @@ async function readChromiumMetaVersion(dbPath) {
 async function readChromeRows(dbPath, where) {
     const sqliteKind = isBunRuntime() ? "bun" : "node";
     const sqliteLabel = sqliteKind === "bun" ? "bun:sqlite" : "node:sqlite";
-    // Node < 24.4 can't read big int columns from node:sqlite without throwing.
+    // Preserve large expiry values when the runtime lacks the constructor's BigInt option.
     const needsTextExpires = sqliteKind === "node" && !supportsReadBigInts();
     const expiresColumn = needsTextExpires
         ? "CAST(expires_utc AS TEXT) AS expires_utc"
