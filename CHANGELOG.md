@@ -2,6 +2,8 @@
 
 ## 0.4.5 - Unreleased
 
+- Development: update transitive source-map-js to 1.2.2 to fix a high-severity source-map denial of service and restore the dependency-audit gate.
+
 ## 0.4.4 - 2026-09-24
 
 **Highlights:** Reliable Chromium cookie reads on early Node 22 and 24 releases without changing runtime requirements.
