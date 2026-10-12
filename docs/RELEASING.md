@@ -1,118 +1,27 @@
-# Release checklist (npm + GitHub)
+# Releasing sweet-cookie
 
-Target destinations:
+The [release workflow](../.github/workflows/release.yml) publishes `@steipete/sweet-cookie` through the shared `openclaw/release-workflows` npm archetype pinned at `@v1`. GitHub Actions owns npm publication and the GitHub Release; npm trusts this repository's **`release.yml`** caller through GitHub OIDC. No npm token or local publishing command is needed.
 
-- npm: `@steipete/sweet-cookie` (library only; published from `packages/core`)
-- GitHub: tag + GitHub Release (notes)
+## Prepare and prove
 
-## 0) Preflight
+1. Protect `main`, then prepare the package version and exactly one dated `##` section in `CHANGELOG.md` in a pull request. Keep an `Unreleased` section for subsequent work. Keep the pinned pnpm version aligned with `package.json`.
+2. Run `pnpm check && pnpm test` and `pnpm build`, merge the reviewed preparation, and wait for successful push CI on the exact merged commit.
+3. Dispatch **Release** on current `main` with the package version and **`dry_run: true`** (the default). This must validate and build that exact main commit, pack the package, and install and smoke-test the frozen tarball on clean x64 and arm64 Linux runners. It creates no tags, npm versions, or GitHub Releases. Existing version tags remain untouched.
 
-- [ ] Clean git: `git status`
-- [ ] Auth:
-  - [ ] `gh auth status`
-  - [ ] `npm whoami` (if this fails: `npm login --auth-type=web`)
+The shared archetype must include its protected-main dry-run fix: earlier `@v1` revisions selected an existing version tag instead of main. A successful run must identify the merged main SHA as its frozen source. Never treat a proof of an older tag as proof of the preparation commit.
 
-## 1) Version sources (keep in sync)
+## Publish after approval
 
-- [ ] `packages/core/package.json` `version`
-- [ ] `CHANGELOG.md` section `## <version> - <date>`
-- [ ] Git tag `v<version>`
+After an explicit release request, push a signed annotated `vX.Y.Z` tag at the prepared commit. The workflow verifies SSH signatures against [release-allowed-signers](../.github/release-allowed-signers). Alternatively, dispatch **Release** from protected main with the prepared version and `dry_run: false`; this creates an immutable annotated tag after validation. Dispatch publication does not create an SSH signature; use the signed-tag path when one is required.
 
-Helper:
+The workflow checks package metadata, dated notes, protected-branch ancestry, and independent push CI on the exact frozen commit. It packs without publishing credentials, independently verifies and smoke-tests the same tarball on both architectures, then publishes the verified bytes using npm trusted publishing and verifies registry integrity, signatures, and commit-bound provenance. The GitHub Release contains the changelog notes, tarball, package plan, inventory, and `SHA256SUMS`.
 
-```bash
-ver="$(node -p 'require(\"./packages/core/package.json\").version')"
-echo "$ver"
-```
+Never move a version tag, overwrite release assets, or republish a version. A retry can only accept an already published npm version when the registry bytes match the frozen payload exactly. Use the immutable tag ref for a live retry; do not try to release an old version from newer main.
 
-## 2) Changelog
+## Verify and close out
 
-- [ ] Update `CHANGELOG.md` for the new version (date + product-facing bullets)
+Read `npm view @steipete/sweet-cookie@X.Y.Z version dist-tags dist.tarball dist.integrity time --json` and the matching GitHub Release. Verify the release checksums and successful provenance job, and keep the next `Unreleased` section ready. These read-only checks and local build/pack inspection remain available; the former local npm/GitHub publication checklist is retired.
 
-## 3) Build outputs are committed
+This package has no Homebrew formula, signed macOS artifacts, or Sparkle feed. No repository release secrets are required. Trusted publishing must list `@steipete/sweet-cookie` → `steipete/sweet-cookie` → `release.yml` with publishing allowed.
 
-This repo keeps `packages/core/dist/` tracked for git-based consumption.
-
-- [ ] `pnpm -s build`
-- [ ] Ensure `packages/core/dist/` updated (no uncommitted build output)
-
-## 4) Gates (no warnings)
-
-- [ ] `pnpm -s lint`
-- [ ] `pnpm -s typecheck`
-- [ ] `pnpm -s test`
-- [ ] `pnpm -s test:bun`
-
-## 5) Package sanity (before publish)
-
-- [ ] Ensure package is publishable:
-  - [ ] `packages/core/package.json` has **no** `"private": true`
-  - [ ] `publishConfig.access` is `public`
-- [ ] Inspect tarball contents:
-  - [ ] `cd packages/core && npm pack --dry-run`
-
-## 6) Commit + push
-
-- [ ] Commit (include dist updates): `committer "chore(release): <version>" <paths…>`
-- [ ] Push: `git push`
-
-## 7) Tag
-
-```bash
-ver="$(node -p 'require(\"./packages/core/package.json\").version')"
-git tag -a "v${ver}" -m "v${ver}"
-git push origin "v${ver}"
-```
-
-## 8) Publish to npm
-
-From `packages/core`:
-
-```bash
-cd packages/core
-npm publish
-```
-
-Verify:
-
-```bash
-npm view @steipete/sweet-cookie version
-```
-
-Smoke (fresh directory):
-
-```bash
-rm -rf /tmp/sweet-cookie-smoke && mkdir -p /tmp/sweet-cookie-smoke
-cd /tmp/sweet-cookie-smoke
-npm init -y >/dev/null
-npm i @steipete/sweet-cookie@"${ver}"
-node -e "import { getCookies, toCookieHeader } from '@steipete/sweet-cookie'; console.log(typeof getCookies, typeof toCookieHeader);"
-```
-
-## 9) GitHub Release (notes)
-
-Create release notes from `CHANGELOG.md` section:
-
-```bash
-ver="$(node -p 'require(\"./packages/core/package.json\").version')"
-awk -v start="$ver" '
-  BEGIN { p=0 }
-  $0 ~ ("^## " start " ") { p=1; next }
-  $0 ~ "^## " { if (p) exit }
-  p { print }
-' CHANGELOG.md >"/tmp/sweet-cookie-v${ver}-notes.md"
-```
-
-Create the GitHub release:
-
-```bash
-gh release create "v${ver}" \
-  --title "v${ver}" \
-  --notes-file "/tmp/sweet-cookie-v${ver}-notes.md"
-```
-
-Verify rendering (real newlines):
-
-```bash
-gh release view "v${ver}" --json body --jq .body | head
-```
+Only `packages/core` is published. The workspace root stays private. Keep tracked `packages/core/dist/` in sync for git consumers; release verification uses synthetic inline cookies and never reads browser profiles or Keychain data. CI separately covers Bun and macOS/Windows.

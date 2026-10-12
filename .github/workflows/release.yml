@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing package version to validate, or prepared version to release
+        required: true
+        type: string
+      dry_run:
+        description: Validate, build, pack, and smoke test without publishing
+        default: true
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.repository }}-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      actions: read
+      checks: read
+      contents: write
+      statuses: read
+      id-token: write
+    uses: openclaw/release-workflows/.github/workflows/release-npm-package.yml@v1
+    with:
+      version: ${{ inputs.version || github.ref_name }}
+      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      require-signed-tag: ${{ github.event_name == 'push' }}
+      strict-checks: true
+      node-version: "24"
+      package-manager: pnpm
+      package-manager-version: "11.27.1"
+      package-dirs: '["packages/core"]'
+      test-command: pnpm check && pnpm test
+      build-command: pnpm build
+      smoke-command: |
+        node --input-type=module <<'JS'
+        import assert from 'node:assert/strict';
+        import { getCookies, toCookieHeader } from '@steipete/sweet-cookie';
+        assert.equal(typeof getCookies, 'function');
+        assert.equal(toCookieHeader([{ name: 'proof', value: 'synthetic' }]), 'proof=synthetic');
+        JS
+        output=$(./node_modules/.bin/sweet-cookie example.com --browser chrome --inline-json '[{"name":"proof","value":"synthetic","domain":"example.com","path":"/"}]' --format header)
+        test "$output" = 'proof=synthetic'
