@@ -48,4 +48,4 @@ jobs:
         assert.equal(toCookieHeader([{ name: 'proof', value: 'synthetic' }]), 'proof=synthetic');
         JS
         output=$(./node_modules/.bin/sweet-cookie example.com --browser chrome --inline-json '[{"name":"proof","value":"synthetic","domain":"example.com","path":"/"}]' --format header)
-        test "$output" = 'proof=synthetic'
+        test "$output" = 'Cookie: proof=synthetic'
