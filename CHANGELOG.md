@@ -2,6 +2,8 @@
 
 ## 0.4.5 - Unreleased
 
+- CI: move macOS tests and builds to the macOS 27 `xcode-27` runner while retaining the Node 22 runtime floor.
+
 - Development: update transitive source-map-js to 1.2.2 to fix a high-severity source-map denial of service and restore the dependency-audit gate.
 
 ## 0.4.4 - 2026-09-24
