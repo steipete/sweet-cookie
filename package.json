@@ -16,14 +16,14 @@
 		"typecheck": "pnpm -r typecheck"
 	},
 	"devDependencies": {
-		"@types/node": "^26.6.2",
-		"@vitest/coverage-v8": "^5.0.1",
+		"@types/node": "^26.6.6",
+		"@vitest/coverage-v8": "^5.1.0",
 		"oxfmt": "^0.70.0",
-		"oxlint": "^1.85.0",
-		"oxlint-tsgolint": "^7.0.2002",
+		"oxlint": "^1.91.0",
+		"oxlint-tsgolint": "^7.0.2005",
 		"typescript": "^7.0.2",
-		"vite": "^8.3.3",
-		"vitest": "^5.0.1"
+		"vite": "^8.3.5",
+		"vitest": "^5.1.0"
 	},
 	"engines": {
 		"node": ">=22.13.0"

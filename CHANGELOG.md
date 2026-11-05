@@ -2,6 +2,7 @@
 
 ## 0.4.5 - Unreleased
 
+- Development: patch Vite and Vitest security advisories and refresh compatible Node/Chrome types and lint tooling while preserving the Node 22 runtime floor. Thanks @dependabot. (#58)
 - CI: move macOS tests and builds to the macOS 27 `xcode-27` runner while retaining the Node 22 runtime floor.
 
 - Development: update transitive source-map-js to 1.2.2 to fix a high-severity source-map denial of service and restore the dependency-audit gate.
