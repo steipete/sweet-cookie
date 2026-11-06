@@ -167,6 +167,29 @@ describe("chromium path helpers", () => {
 		).toEqual([{ dbPath, profile: "Profile 4", storeId: path.dirname(path.dirname(dbPath)) }]);
 	});
 
+	it("ignores a relative XDG_CONFIG_HOME for Edge on Linux", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-edge-relative-xdg-"));
+		const decoy = path.join(dir, "relative-xdg", "microsoft-edge", "Default", "Cookies");
+		mkdirSync(path.dirname(decoy), { recursive: true });
+		writeFileSync(decoy, "", "utf8");
+		const cwd = process.cwd();
+		try {
+			process.chdir(dir);
+			vi.stubEnv("XDG_CONFIG_HOME", "relative-xdg");
+			const found = resolveChromiumCookiesDbsLinux({ configDirName: "microsoft-edge" });
+			const relativeHit = path.join("relative-xdg", "microsoft-edge", "Default", "Cookies");
+			expect(found.map((db) => db.dbPath)).not.toContain(relativeHit);
+			expect(found.map((db) => db.dbPath)).not.toContain(decoy);
+			const homeConfig = path.join(homedir(), ".config");
+			for (const db of found) {
+				expect(path.isAbsolute(db.dbPath)).toBe(true);
+				expect(db.dbPath.startsWith(homeConfig)).toBe(true);
+			}
+		} finally {
+			process.chdir(cwd);
+		}
+	});
+
 	it("resolves Windows Chromium DBs and Local State fallbacks", () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-windows-paths-"));
 		vi.stubEnv("LOCALAPPDATA", dir);

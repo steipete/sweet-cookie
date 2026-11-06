@@ -24,7 +24,12 @@ export function resolveChromiumCookiesDbsLinux(options: {
 	profile?: ChromiumProfileSelector;
 }): ResolvedCookiesDb[] {
 	const home = homedir();
-	const configHome = process.env["XDG_CONFIG_HOME"]?.trim() || path.join(home, ".config");
+	// A relative XDG_CONFIG_HOME is invalid. Ignore it, same as Chrome and Firefox.
+	const xdgConfigHomeRaw = process.env["XDG_CONFIG_HOME"]?.trim();
+	const configHome =
+		xdgConfigHomeRaw && path.isAbsolute(xdgConfigHomeRaw)
+			? xdgConfigHomeRaw
+			: path.join(home, ".config");
 	const root = path.join(configHome, options.configDirName);
 
 	if (typeof options.profile === "string" && looksLikePath(options.profile)) {
