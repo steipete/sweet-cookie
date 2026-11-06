@@ -32,6 +32,7 @@ export async function getCookiesFromEdgeSqliteWindows(options, origins, allowlis
         };
         const dbOptions = {
             dbPath: db.dbPath,
+            browser: "edge",
         };
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;

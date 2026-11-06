@@ -35,7 +35,7 @@ export async function getCookiesFromEdgeSqliteMac(options, origins, allowlistNam
     });
     const cookies = [];
     for (const db of dbs) {
-        const dbOptions = { dbPath: db.dbPath };
+        const dbOptions = { dbPath: db.dbPath, browser: "edge" };
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;
         }

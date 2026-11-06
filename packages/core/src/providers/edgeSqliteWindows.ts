@@ -50,8 +50,10 @@ export async function getCookiesFromEdgeSqliteWindows(
 			storeId?: string;
 			includeExpired?: boolean;
 			debug?: boolean;
+			browser: "edge";
 		} = {
 			dbPath: db.dbPath,
+			browser: "edge",
 		};
 		if (db.profile !== undefined) {
 			dbOptions.profile = db.profile;
