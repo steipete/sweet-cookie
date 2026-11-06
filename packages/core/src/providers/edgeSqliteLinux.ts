@@ -64,7 +64,8 @@ export async function getCookiesFromEdgeSqliteLinux(
 			storeId?: string;
 			includeExpired?: boolean;
 			debug?: boolean;
-		} = { dbPath: db.dbPath };
+			browser: "edge";
+		} = { dbPath: db.dbPath, browser: "edge" };
 		if (db.profile !== undefined) {
 			dbOptions.profile = db.profile;
 		}

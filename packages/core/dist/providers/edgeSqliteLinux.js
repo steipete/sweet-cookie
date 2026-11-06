@@ -41,7 +41,7 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
     const warnings = [...keyringWarnings];
     const cookies = [];
     for (const db of dbs) {
-        const dbOptions = { dbPath: db.dbPath };
+        const dbOptions = { dbPath: db.dbPath, browser: "edge" };
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;
         }

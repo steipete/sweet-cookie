@@ -92,6 +92,15 @@ describe("chrome sqlite provider (shared)", () => {
 		expect(res.warnings).toEqual([
 			"1 partitioned Chromium cookie(s) were excluded because replay cannot preserve their partition key.",
 		]);
+		expect(res.cookies[0]?.source?.browser).toBe("chrome");
+
+		const edgeRes = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true, browser: "edge" },
+			["https://chatgpt.com/"],
+			null,
+			() => null,
+		);
+		expect(edgeRes.cookies[0]?.source?.browser).toBe("edge");
 
 		const subdomainRes = await getCookiesFromChromeSqliteDb(
 			{ dbPath, includeExpired: true },

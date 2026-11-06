@@ -36,7 +36,7 @@ export async function getCookiesFromChromeSqliteDb(options, origins, allowlistNa
             warnings.push(rowsResult.error);
             return { cookies: [], warnings };
         }
-        const collectOptions = {};
+        const collectOptions = { browser: options.browser ?? "chrome" };
         if (options.profile) {
             collectOptions.profile = options.profile;
         }
@@ -120,7 +120,7 @@ function collectChromeCookiesFromRows(rows, options, hosts, allowlistNames, decr
             row.is_httponly === "1" ||
             row.is_httponly === true;
         const sameSite = normalizeChromiumSameSite(row.samesite);
-        const source = { browser: "chrome" };
+        const source = { browser: options.browser ?? "chrome" };
         if (options.profile) {
             source.profile = options.profile;
         }
