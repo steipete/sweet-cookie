@@ -60,12 +60,11 @@ async function getCookiesFromFirefoxDb(
 	}
 
 	const hosts = origins.map((o) => new URL(o).hostname);
-	const now = Math.floor(Date.now() / 1000);
 	const where = buildHostWhereClause(hosts);
-	const expiryClause = options.includeExpired ? "" : ` AND (expiry = 0 OR expiry > ${now})`;
 	const bunRuntime = isBunRuntime();
 	const sqliteLabel = bunRuntime ? "bun:sqlite" : "node:sqlite";
-	const columnsSql = "PRAGMA table_info(moz_cookies);";
+	const columnsSql =
+		"SELECT name, (SELECT user_version FROM pragma_user_version) AS user_version FROM pragma_table_info('moz_cookies');";
 	const columnsResult = bunRuntime
 		? await queryFirefoxCookiesWithBunSqlite(tempDbPath, columnsSql)
 		: await queryFirefoxCookiesWithNodeSqlite(tempDbPath, columnsSql);
@@ -74,6 +73,11 @@ async function getCookiesFromFirefoxDb(
 		warnings.push(`${sqliteLabel} failed reading Firefox cookies: ${columnsResult.error}`);
 		return { cookies: [], warnings };
 	}
+	// Firefox schema 16 migrated expiry from seconds to milliseconds.
+	// https://hg.mozilla.org/releases/mozilla-release/file/FIREFOX_142_0_RELEASE/netwerk/cookie/CookiePersistentStorage.cpp#l1576
+	const milliseconds = Number(columnsResult.rows[0]?.user_version) >= 16;
+	const now = milliseconds ? Date.now() : Math.floor(Date.now() / 1000);
+	const expiryClause = options.includeExpired ? "" : ` AND (expiry = 0 OR expiry > ${now})`;
 	const columnNames = new Set(
 		columnsResult.rows.flatMap((row) => (typeof row.name === "string" ? [row.name] : [])),
 	);
@@ -83,9 +87,10 @@ async function getCookiesFromFirefoxDb(
 	const partitionedColumn = columnNames.has("isPartitionedAttributeSet")
 		? "isPartitionedAttributeSet"
 		: "0 AS isPartitionedAttributeSet";
+	const expiryColumn = milliseconds ? "expiry / 1000 AS expiry" : "expiry";
 	const sql =
-		`SELECT name, value, host, path, expiry, isSecure, isHttpOnly, sameSite, ${originAttributesColumn}, ${partitionedColumn} ` +
-		`FROM moz_cookies WHERE (${where})${expiryClause} ORDER BY expiry DESC;`;
+		`SELECT name, value, host, path, ${expiryColumn}, isSecure, isHttpOnly, sameSite, ${originAttributesColumn}, ${partitionedColumn} ` +
+		`FROM moz_cookies WHERE (${where})${expiryClause} ORDER BY moz_cookies.expiry DESC;`;
 
 	try {
 		if (bunRuntime) {
@@ -123,6 +128,7 @@ async function getCookiesFromFirefoxDb(
 }
 
 type FirefoxRow = {
+	user_version?: unknown;
 	name?: unknown;
 	value?: unknown;
 	host?: unknown;
