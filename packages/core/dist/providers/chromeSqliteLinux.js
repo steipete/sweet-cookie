@@ -19,6 +19,7 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
     for (const db of dbs) {
         const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
             app: db.keyringApp,
+            timeoutMs: options.timeoutMs,
         });
         warnings.push(...keyringWarnings);
         // Linux uses multiple schemes depending on distro/keyring availability.

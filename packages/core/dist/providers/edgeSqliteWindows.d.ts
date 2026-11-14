@@ -4,5 +4,6 @@ export declare function getCookiesFromEdgeSqliteWindows(options: {
     profile?: ChromiumProfileSelector;
     includeExpired?: boolean;
     debug?: boolean;
+    timeoutMs?: number;
 }, origins: string[], allowlistNames: Set<string> | null): Promise<GetCookiesResult>;
 //# sourceMappingURL=edgeSqliteWindows.d.ts.map

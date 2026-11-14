@@ -1,4 +1,4 @@
-export declare function getWindowsChromiumMasterKey(userDataDir: string, label: string): Promise<{
+export declare function getWindowsChromiumMasterKey(userDataDir: string, label: string, timeoutMs?: number): Promise<{
     ok: true;
     value: Buffer;
 } | {

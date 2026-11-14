@@ -20,7 +20,7 @@ export async function getCookiesFromChromeSqliteWindows(options, origins, allowl
         // On Windows, Chrome stores an AES key in `Local State` encrypted with DPAPI (CurrentUser).
         // That master key decrypts classic AES-256-GCM values (`v10`/`v11`); App-Bound `v20`
         // cookies may fail and are reported by the shared collector.
-        const masterKey = await getWindowsChromiumMasterKey(db.userDataDir, "Chrome");
+        const masterKey = await getWindowsChromiumMasterKey(db.userDataDir, "Chrome", options.timeoutMs);
         if (!masterKey.ok) {
             warnings.push(masterKey.error);
             continue;

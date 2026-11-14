@@ -5,6 +5,7 @@ export declare function getCookiesFromChromeSqliteLinux(options: {
     profile?: ChromiumProfileSelector;
     includeExpired?: boolean;
     debug?: boolean;
+    timeoutMs?: number;
     chromiumBrowser?: ChromiumBrowserId;
 }, origins: string[], allowlistNames: Set<string> | null): Promise<GetCookiesResult>;
 export {};

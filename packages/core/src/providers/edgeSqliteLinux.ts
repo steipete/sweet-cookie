@@ -9,7 +9,12 @@ import { resolveChromiumCookiesDbsLinux } from "./chromium/linuxPaths.js";
 import type { ChromiumProfileSelector } from "./chromium/paths.js";
 
 export async function getCookiesFromEdgeSqliteLinux(
-	options: { profile?: ChromiumProfileSelector; includeExpired?: boolean; debug?: boolean },
+	options: {
+		profile?: ChromiumProfileSelector;
+		includeExpired?: boolean;
+		debug?: boolean;
+		timeoutMs?: number;
+	},
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {
@@ -26,6 +31,7 @@ export async function getCookiesFromEdgeSqliteLinux(
 
 	const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
 		app: "edge",
+		timeoutMs: options.timeoutMs,
 	});
 
 	// Linux uses multiple schemes depending on distro/keyring availability.

@@ -15,6 +15,7 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
     }
     const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
         app: "edge",
+        timeoutMs: options.timeoutMs,
     });
     // Linux uses multiple schemes depending on distro/keyring availability.
     // - v10 often uses the hard-coded "peanuts" password

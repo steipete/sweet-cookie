@@ -13,18 +13,21 @@ export type LinuxKeyringApp = "chrome" | "chromium" | "edge" | "brave";
 export declare function getLinuxChromiumSafeStoragePassword(options: {
     backend?: LinuxKeyringBackend;
     app: LinuxKeyringApp;
+    timeoutMs?: number | undefined;
 }): Promise<{
     password: string;
     warnings: string[];
 }>;
 export declare function getLinuxChromeSafeStoragePassword(options?: {
     backend?: LinuxKeyringBackend;
+    timeoutMs?: number;
 }): Promise<{
     password: string;
     warnings: string[];
 }>;
 export declare function getLinuxBraveSafeStoragePassword(options?: {
     backend?: LinuxKeyringBackend;
+    timeoutMs?: number;
 }): Promise<{
     password: string;
     warnings: string[];

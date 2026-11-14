@@ -15,6 +15,7 @@ export async function getCookiesFromChromeSqliteLinux(
 		profile?: ChromiumProfileSelector;
 		includeExpired?: boolean;
 		debug?: boolean;
+		timeoutMs?: number;
 		chromiumBrowser?: ChromiumBrowserId;
 	},
 	origins: string[],
@@ -37,6 +38,7 @@ export async function getCookiesFromChromeSqliteLinux(
 	for (const db of dbs) {
 		const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
 			app: db.keyringApp,
+			timeoutMs: options.timeoutMs,
 		});
 		warnings.push(...keyringWarnings);
 
