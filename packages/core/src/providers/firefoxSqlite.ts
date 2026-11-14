@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
@@ -299,16 +299,22 @@ function resolveFirefoxCookiesDbs(
 					: [];
 
 	if (typeof profile === "string" && looksLikePath(profile)) {
-		const candidate = profile.endsWith("cookies.sqlite")
-			? profile
-			: path.join(profile, "cookies.sqlite");
+		let stat;
+		try {
+			stat = statSync(profile);
+		} catch {
+			return [];
+		}
+		const isFile = stat.isFile();
+		if (!isFile && !stat.isDirectory()) {
+			return [];
+		}
+		const candidate = isFile ? profile : path.join(profile, "cookies.sqlite");
 		if (!existsSync(candidate)) {
 			return [];
 		}
 		const resolved: { dbPath: string; profile?: string } = { dbPath: candidate };
-		const profileName = profile.endsWith("cookies.sqlite")
-			? path.basename(path.dirname(profile))
-			: path.basename(profile);
+		const profileName = isFile ? path.basename(path.dirname(profile)) : path.basename(profile);
 		if (profileName) {
 			resolved.profile = profileName;
 		}
