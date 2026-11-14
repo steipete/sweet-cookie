@@ -61,7 +61,9 @@ async function getCookiesFromFirefoxDb(dbPath, options, origins, allowlistNames)
     // https://hg.mozilla.org/releases/mozilla-release/file/FIREFOX_142_0_RELEASE/netwerk/cookie/CookiePersistentStorage.cpp#l1576
     const milliseconds = Number(columnsResult.rows[0]?.user_version) >= 16;
     const now = milliseconds ? Date.now() : Math.floor(Date.now() / 1000);
-    const expiryClause = options.includeExpired ? "" : ` AND (expiry = 0 OR expiry > ${now})`;
+    const expiryClause = options.includeExpired
+        ? ""
+        : ` AND (moz_cookies.expiry = 0 OR moz_cookies.expiry > ${now})`;
     const columnNames = new Set(columnsResult.rows.flatMap((row) => (typeof row.name === "string" ? [row.name] : [])));
     const originAttributesColumn = columnNames.has("originAttributes")
         ? "originAttributes"
