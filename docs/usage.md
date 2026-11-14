@@ -20,7 +20,7 @@ The CLI accepts a domain or full URL. It prints cookie output to stdout and prov
 | `--profile <value>`            | Set the shared Chrome/Edge profile selector.                                                          |
 | `--chrome-profile <value>`     | Set a Chrome profile name, directory, or cookie database path.                                        |
 | `--edge-profile <value>`       | Set an Edge profile name, directory, or cookie database path.                                         |
-| `--firefox-profile <value>`    | Set a Firefox profile name, directory, or `cookies.sqlite` path.                                      |
+| `--firefox-profile <value>`    | Set a Firefox profile name, directory, or cookie database path.                                       |
 | `--safari-cookies-file <path>` | Override the Safari `Cookies.binarycookies` path.                                                     |
 | `--chromium-browser <name>`    | On macOS or Linux, target `chrome`, `brave`, `arc`, `chromium`, or `dia`; Arc and Dia are macOS-only. |
 | `--mode <merge\|first>`        | Merge browser results or stop at the first backend with cookies. Defaults to `merge`.                 |
@@ -110,7 +110,7 @@ Chrome and Edge selectors accept:
 - an array of selectors; or
 - the exported `ALL_PROFILES` sentinel.
 
-Firefox selectors accept a profile name, profile directory, `cookies.sqlite` path, selector array, or `ALL_PROFILES`. When omitted, Firefox uses `default-release` when present and otherwise the first discovered profile.
+Firefox selectors accept a profile name, profile directory, cookie database path, selector array, or `ALL_PROFILES`. When omitted, Firefox uses `default-release` when present and otherwise the first discovered profile.
 
 Safari has no profile selector. `safariCookiesFile` accepts one or more explicit `Cookies.binarycookies` paths for testing or debugging.
 
