@@ -317,10 +317,10 @@ function resolveFirefoxCookiesDbs(
 		if (!isFile && !stat.isDirectory()) {
 			return [];
 		}
-		const profilePath = path.resolve(profile);
 		let candidate;
 		try {
-			candidate = isFile ? realpathSync(profilePath) : path.join(profilePath, "cookies.sqlite");
+			// The non-native realpathSync normalizes `..` before following symlinks.
+			candidate = isFile ? realpathSync.native(profile) : path.join(profile, "cookies.sqlite");
 		} catch {
 			return [];
 		}
@@ -329,9 +329,9 @@ function resolveFirefoxCookiesDbs(
 		}
 		const resolved: { dbPath: string; profile?: string } = { dbPath: candidate };
 		const profileName =
-			isFile && path.basename(profilePath) === "cookies.sqlite"
-				? path.basename(path.dirname(profilePath))
-				: path.basename(profilePath);
+			isFile && path.basename(profile) === "cookies.sqlite"
+				? path.basename(path.dirname(profile))
+				: path.basename(profile);
 		if (profileName) {
 			resolved.profile = profileName;
 		}

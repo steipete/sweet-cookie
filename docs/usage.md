@@ -110,7 +110,7 @@ Chrome and Edge selectors accept:
 - an array of selectors; or
 - the exported `ALL_PROFILES` sentinel.
 
-Firefox selectors accept a profile name, profile directory, cookie database path, selector array, or `ALL_PROFILES`. When omitted, Firefox uses `default-release` when present and otherwise the first discovered profile.
+Firefox selectors accept a profile name, profile directory, cookie database path, selector array, or `ALL_PROFILES`. Paths need `/` or `\` (e.g. `./a.sqlite`); bare names select profiles. When omitted, Firefox uses `default-release` when present and otherwise the first discovered profile.
 
 Safari has no profile selector. `safariCookiesFile` accepts one or more explicit `Cookies.binarycookies` paths for testing or debugging.
 

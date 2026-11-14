@@ -80,7 +80,7 @@ describe("Firefox profile paths", () => {
 		}
 	});
 
-	it("reads WAL changes through a symlink and labels it by the link name", async () => {
+	it("reads WAL changes through a symlink and labels it by the link name", async ({ skip }) => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
 		try {
 			const dbPath = path.join(dir, "a.sqlite");
@@ -98,7 +98,14 @@ describe("Firefox profile paths", () => {
 					base.close();
 				}
 				const link = path.join(dir, "b.sqlite");
-				symlinkSync(dbPath, link);
+				try {
+					symlinkSync(dbPath, link);
+				} catch (error) {
+					if (["EPERM", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) {
+						skip("Symlink creation is not permitted");
+					}
+					throw error;
+				}
 				const result = await getCookies({
 					url: "https://example.com/",
 					browsers: ["firefox"],
@@ -115,6 +122,48 @@ describe("Firefox profile paths", () => {
 			} finally {
 				db.close();
 			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("resolves parent traversal after following a symlink", async ({ skip }) => {
+		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
+		try {
+			const target = path.join(dir, "target");
+			const sub = path.join(target, "sub");
+			const links = path.join(dir, "links");
+			mkdirSync(sub, { recursive: true });
+			mkdirSync(links);
+			const db = new DatabaseSync(path.join(target, "a.sqlite"));
+			try {
+				db.exec(`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);
+					INSERT INTO moz_cookies VALUES ('sid', 'value', 'example.com', '/', 9999999999, 0, 0, 0);`);
+			} finally {
+				db.close();
+			}
+			const link = path.join(links, "link");
+			try {
+				symlinkSync(sub, link, "dir");
+			} catch (error) {
+				if (["EPERM", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) {
+					skip("Symlink creation is not permitted");
+				}
+				throw error;
+			}
+			const result = await getCookies({
+				url: "https://example.com/",
+				browsers: ["firefox"],
+				firefoxProfile: `${link}${path.sep}..${path.sep}a.sqlite`,
+			});
+			expect(result.warnings).toEqual([]);
+			expect(result.cookies).toEqual([
+				expect.objectContaining({
+					name: "sid",
+					value: "value",
+					source: { browser: "firefox", profile: "a.sqlite" },
+				}),
+			]);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
