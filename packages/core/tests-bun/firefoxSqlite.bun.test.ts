@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -94,4 +94,46 @@ test("firefox sqlite provider reads schemas without isolation columns", async ()
 	expect(res.cookies[0]?.name).toBe("sid");
 	expect(res.cookies[0]?.hostOnly).toBe(true);
 	expect(res.warnings).toEqual([]);
+});
+
+test("firefox sqlite provider reads schema 16 expiry in milliseconds", async () => {
+	const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-bun-expiry-"));
+	try {
+		const profileDir = path.join(dir, "profile");
+		mkdirSync(profileDir, { recursive: true });
+		const db = new Database(path.join(profileDir, "cookies.sqlite"));
+		const now = Date.now();
+		const validExpiry = now + 3_600_999;
+		try {
+			db.query("PRAGMA user_version = 16").run();
+			db.query(
+				`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);`,
+			).run();
+			db.query(
+				`INSERT INTO moz_cookies VALUES
+				('expired', 'value', 'example.com', '/', ${now - 3_600_000}, 0, 0, 0),
+				('valid', 'value', 'example.com', '/', ${validExpiry}, 0, 0, 0)`,
+			).run();
+		} finally {
+			db.close();
+		}
+
+		const result = await getCookiesFromFirefox(
+			{ profile: profileDir },
+			["https://example.com/"],
+			null,
+		);
+		expect(result.warnings).toEqual([]);
+		expect(result.cookies.map(({ name, expires }) => ({ name, expires }))).toEqual([
+			{ name: "valid", expires: Math.floor(validExpiry / 1000) },
+		]);
+		const all = await getCookiesFromFirefox(
+			{ profile: profileDir, includeExpired: true },
+			["https://example.com/"],
+			null,
+		);
+		expect(all.cookies.map(({ name }) => name)).toEqual(["valid", "expired"]);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });

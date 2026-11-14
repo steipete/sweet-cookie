@@ -51,9 +51,11 @@ const LINUX_KEYRING_IDENTITIES: Record<
 export async function getLinuxChromiumSafeStoragePassword(options: {
 	backend?: LinuxKeyringBackend;
 	app: LinuxKeyringApp;
+	timeoutMs?: number | undefined;
 }): Promise<{ password: string; warnings: string[] }> {
 	const warnings: string[] = [];
 	const identity = LINUX_KEYRING_IDENTITIES[options.app];
+	const timeoutMs = options.timeoutMs ?? 3_000;
 
 	// Escape hatch: if callers already know the password (or want deterministic CI behavior),
 	// they can bypass keyring probing entirely.
@@ -84,7 +86,7 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 		let res = await execCapture(
 			"secret-tool",
 			["lookup", "service", identity.service, "account", identity.account],
-			{ timeoutMs: 3_000 },
+			{ timeoutMs },
 		);
 		if (res.code === 0 && res.stdout.trim()) {
 			return { password: res.stdout.trim(), warnings };
@@ -92,7 +94,7 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 
 		// Fallback: try application-based lookup (chrome_libsecret_os_crypt_password_v2 schema)
 		res = await execCapture("secret-tool", ["lookup", "application", identity.application], {
-			timeoutMs: 3_000,
+			timeoutMs,
 		});
 		if (res.code === 0 && res.stdout.trim()) {
 			return { password: res.stdout.trim(), warnings };
@@ -116,11 +118,11 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 				? "/modules/kwalletd5"
 				: "/modules/kwalletd";
 
-	const wallet = await getKWalletNetworkWallet(serviceName, walletPath);
+	const wallet = await getKWalletNetworkWallet(serviceName, walletPath, timeoutMs);
 	const passwordRes = await execCapture(
 		"kwallet-query",
 		["--read-password", identity.service, "--folder", folder, wallet],
-		{ timeoutMs: 3_000 },
+		{ timeoutMs },
 	);
 	if (passwordRes.code !== 0) {
 		warnings.push(
@@ -135,21 +137,31 @@ export async function getLinuxChromiumSafeStoragePassword(options: {
 }
 
 export async function getLinuxChromeSafeStoragePassword(
-	options: { backend?: LinuxKeyringBackend } = {},
+	options: { backend?: LinuxKeyringBackend; timeoutMs?: number } = {},
 ): Promise<{ password: string; warnings: string[] }> {
-	const args: { app: "chrome"; backend?: LinuxKeyringBackend } = { app: "chrome" };
+	const args: { app: "chrome"; backend?: LinuxKeyringBackend; timeoutMs?: number } = {
+		app: "chrome",
+	};
 	if (options.backend !== undefined) {
 		args.backend = options.backend;
+	}
+	if (options.timeoutMs !== undefined) {
+		args.timeoutMs = options.timeoutMs;
 	}
 	return await getLinuxChromiumSafeStoragePassword(args);
 }
 
 export async function getLinuxBraveSafeStoragePassword(
-	options: { backend?: LinuxKeyringBackend } = {},
+	options: { backend?: LinuxKeyringBackend; timeoutMs?: number } = {},
 ): Promise<{ password: string; warnings: string[] }> {
-	const args: { app: "brave"; backend?: LinuxKeyringBackend } = { app: "brave" };
+	const args: { app: "brave"; backend?: LinuxKeyringBackend; timeoutMs?: number } = {
+		app: "brave",
+	};
 	if (options.backend !== undefined) {
 		args.backend = options.backend;
+	}
+	if (options.timeoutMs !== undefined) {
+		args.timeoutMs = options.timeoutMs;
 	}
 	return await getLinuxChromiumSafeStoragePassword(args);
 }
@@ -183,7 +195,11 @@ export function resolveLinuxKeyringBackend(): LinuxKeyringBackend {
 	return isKde ? "kwallet" : "gnome";
 }
 
-async function getKWalletNetworkWallet(serviceName: string, walletPath: string): Promise<string> {
+async function getKWalletNetworkWallet(
+	serviceName: string,
+	walletPath: string,
+	timeoutMs: number,
+): Promise<string> {
 	const res = await execCapture(
 		"dbus-send",
 		[
@@ -193,7 +209,7 @@ async function getKWalletNetworkWallet(serviceName: string, walletPath: string):
 			walletPath,
 			"org.kde.KWallet.networkWallet",
 		],
-		{ timeoutMs: 3_000 },
+		{ timeoutMs },
 	);
 	const fallback = "kdewallet";
 	if (res.code !== 0) {

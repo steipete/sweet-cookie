@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { Cookie, CookieSameSite, GetCookiesResult } from "../../types.js";
+import type { BrowserName, Cookie, CookieSameSite, GetCookiesResult } from "../../types.js";
 import { normalizeExpiration } from "../../util/expire.js";
 import { hostMatchesCookieDomain } from "../../util/hostMatch.js";
 import { importNodeSqlite, supportsReadBigInts } from "../../util/nodeSqlite.js";
@@ -29,10 +29,14 @@ export async function getCookiesFromChromeSqliteDb(
 		storeId?: string;
 		includeExpired?: boolean;
 		debug?: boolean;
+		browser?: BrowserName;
 	},
 	origins: string[],
 	allowlistNames: Set<string> | null,
-	decrypt: (encryptedValue: Uint8Array, options: { stripHashPrefix: boolean }) => string | null,
+	decrypt: (
+		encryptedValue: Uint8Array,
+		options: { stripHashPrefix: boolean; hostKey: string },
+	) => string | null,
 ): Promise<GetCookiesResult> {
 	const warnings: string[] = [];
 
@@ -59,8 +63,7 @@ export async function getCookiesFromChromeSqliteDb(
 		const where = buildHostWhereClause(hosts, "host_key");
 
 		const metaVersion = await readChromiumMetaVersion(tempDbPath);
-		// Chromium >= 24 stores a 32-byte hash prefix in decrypted cookie values.
-		// We detect this via the `meta` table version and strip it when present.
+		// Chromium schema 24 requires verification of the host hash before removing it.
 		const stripHashPrefix = metaVersion >= 24;
 
 		const rowsResult = await readChromeRows(tempDbPath, where);
@@ -69,7 +72,12 @@ export async function getCookiesFromChromeSqliteDb(
 			return { cookies: [], warnings };
 		}
 
-		const collectOptions: { profile?: string; storeId?: string; includeExpired?: boolean } = {};
+		const collectOptions: {
+			profile?: string;
+			storeId?: string;
+			includeExpired?: boolean;
+			browser?: BrowserName;
+		} = { browser: options.browser ?? "chrome" };
 		if (options.profile) {
 			collectOptions.profile = options.profile;
 		}
@@ -85,7 +93,7 @@ export async function getCookiesFromChromeSqliteDb(
 			collectOptions,
 			hosts,
 			allowlistNames,
-			(encryptedValue) => decrypt(encryptedValue, { stripHashPrefix }),
+			(encryptedValue, hostKey) => decrypt(encryptedValue, { stripHashPrefix, hostKey }),
 			warnings,
 		);
 
@@ -97,10 +105,10 @@ export async function getCookiesFromChromeSqliteDb(
 
 function collectChromeCookiesFromRows(
 	rows: ChromeRow[],
-	options: { profile?: string; storeId?: string; includeExpired?: boolean },
+	options: { profile?: string; storeId?: string; includeExpired?: boolean; browser?: BrowserName },
 	hosts: string[],
 	allowlistNames: Set<string> | null,
-	decrypt: (encryptedValue: Uint8Array) => string | null,
+	decrypt: (encryptedValue: Uint8Array, hostKey: string) => string | null,
 	warnings: string[],
 ): Cookie[] {
 	const cookies: Cookie[] = [];
@@ -108,6 +116,7 @@ function collectChromeCookiesFromRows(
 	let warnedEncryptedType = false;
 	let v20DecryptFailureCount = 0;
 	let partitionedCookieCount = 0;
+	let decryptFailureCount = 0;
 
 	for (const row of rows) {
 		const name = typeof row.name === "string" ? row.name : null;
@@ -148,9 +157,11 @@ function collectChromeCookiesFromRows(
 				continue;
 			}
 			const encryptedPrefix = getChromiumEncryptedValuePrefix(encryptedBytes);
-			value = decrypt(encryptedBytes);
+			value = decrypt(encryptedBytes, hostKey);
 			if (value === null && encryptedPrefix === "v20") {
 				v20DecryptFailureCount++;
+			} else if (value === null) {
+				decryptFailureCount++;
 			}
 		}
 		if (value === null) {
@@ -182,7 +193,7 @@ function collectChromeCookiesFromRows(
 
 		const sameSite = normalizeChromiumSameSite(row.samesite);
 
-		const source: NonNullable<Cookie["source"]> = { browser: "chrome" };
+		const source: NonNullable<Cookie["source"]> = { browser: options.browser ?? "chrome" };
 		if (options.profile) {
 			source.profile = options.profile;
 		}
@@ -210,6 +221,11 @@ function collectChromeCookiesFromRows(
 		cookies.push(cookie);
 	}
 
+	if (decryptFailureCount > 0) {
+		warnings.push(
+			`${decryptFailureCount} Chromium cookie(s) could not be decrypted or failed host binding verification.`,
+		);
+	}
 	if (v20DecryptFailureCount > 0) {
 		warnings.push(
 			`${v20DecryptFailureCount} Chromium cookie(s) use v20 App-Bound Encryption and could not be decrypted. ` +

@@ -1,4 +1,4 @@
-import { createCipheriv } from "node:crypto";
+import { createCipheriv, createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
@@ -21,7 +21,10 @@ describe("chromium cookie crypto", () => {
 		const key = deriveAes128CbcKeyFromPassword("pw", { iterations: 1003 });
 		const iv = Buffer.alloc(16, 0x20);
 
-		const plaintext = Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from("hello", "utf8")]);
+		const plaintext = Buffer.concat([
+			createHash("sha256").update(".example.com").digest(),
+			Buffer.from("hello", "utf8"),
+		]);
 
 		const cipher = createCipheriv("aes-128-cbc", key, iv);
 		const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
@@ -31,6 +34,7 @@ describe("chromium cookie crypto", () => {
 		expect(
 			decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
 				stripHashPrefix: true,
+				hostKey: ".example.com",
 				treatUnknownPrefixAsPlaintext: false,
 			}),
 		).toBe("hello");
@@ -38,6 +42,7 @@ describe("chromium cookie crypto", () => {
 		expect(
 			decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
 				stripHashPrefix: false,
+				hostKey: ".example.com",
 				treatUnknownPrefixAsPlaintext: false,
 			}),
 		).toBeNull();
@@ -48,7 +53,10 @@ describe("chromium cookie crypto", () => {
 		const wrongKey = deriveAes128CbcKeyFromPassword("wrong", { iterations: 1 });
 		const iv = Buffer.alloc(16, 0x20);
 
-		const plaintext = Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from("ok", "utf8")]);
+		const plaintext = Buffer.concat([
+			createHash("sha256").update(".example.com").digest(),
+			Buffer.from("ok", "utf8"),
+		]);
 		const cipher = createCipheriv("aes-128-cbc", correctKey, iv);
 		const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
 		const encryptedValue = Buffer.concat([Buffer.from("v10", "utf8"), ciphertext]);
@@ -56,6 +64,7 @@ describe("chromium cookie crypto", () => {
 		expect(
 			decryptChromiumAes128CbcCookieValue(encryptedValue, [wrongKey, correctKey], {
 				stripHashPrefix: true,
+				hostKey: ".example.com",
 				treatUnknownPrefixAsPlaintext: false,
 			}),
 		).toBe("ok");
@@ -65,7 +74,10 @@ describe("chromium cookie crypto", () => {
 		const key = Buffer.alloc(32, 7);
 		const nonce = Buffer.alloc(12, 9);
 
-		const plaintext = Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from("cookie", "utf8")]);
+		const plaintext = Buffer.concat([
+			createHash("sha256").update(".example.com").digest(),
+			Buffer.from("cookie", "utf8"),
+		]);
 
 		const cipher = createCipheriv("aes-256-gcm", key, nonce);
 		const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
@@ -74,11 +86,17 @@ describe("chromium cookie crypto", () => {
 		const encryptedValue = Buffer.concat([Buffer.from("v10", "utf8"), nonce, ciphertext, tag]);
 
 		expect(
-			decryptChromiumAes256GcmCookieValue(encryptedValue, key, { stripHashPrefix: true }),
+			decryptChromiumAes256GcmCookieValue(encryptedValue, key, {
+				stripHashPrefix: true,
+				hostKey: ".example.com",
+			}),
 		).toBe("cookie");
 
 		expect(
-			decryptChromiumAes256GcmCookieValue(encryptedValue, key, { stripHashPrefix: false }),
+			decryptChromiumAes256GcmCookieValue(encryptedValue, key, {
+				stripHashPrefix: false,
+				hostKey: ".example.com",
+			}),
 		).toBeNull();
 	});
 });

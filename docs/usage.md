@@ -20,7 +20,7 @@ The CLI accepts a domain or full URL. It prints cookie output to stdout and prov
 | `--profile <value>`            | Set the shared Chrome/Edge profile selector.                                                          |
 | `--chrome-profile <value>`     | Set a Chrome profile name, directory, or cookie database path.                                        |
 | `--edge-profile <value>`       | Set an Edge profile name, directory, or cookie database path.                                         |
-| `--firefox-profile <value>`    | Set a Firefox profile name, directory, or `cookies.sqlite` path.                                      |
+| `--firefox-profile <value>`    | Set a Firefox profile name, directory, or cookie database path.                                       |
 | `--safari-cookies-file <path>` | Override the Safari `Cookies.binarycookies` path.                                                     |
 | `--chromium-browser <name>`    | On macOS or Linux, target `chrome`, `brave`, `arc`, `chromium`, or `dia`; Arc and Dia are macOS-only. |
 | `--mode <merge\|first>`        | Merge browser results or stop at the first backend with cookies. Defaults to `merge`.                 |
@@ -97,6 +97,12 @@ Without an inline result, the configured browser backends run in order. The defa
 
 Local Chromium and Firefox reads copy the cookie database and its journal files to a temporary directory before querying. SQLite comes from `node:sqlite` on Node.js or `bun:sqlite` on Bun; the package has no native Node addon dependency.
 
+Chromium schema 24 and newer encrypted cookies are returned only when their SHA-256 host binding matches the exact database host. Invalid or undecryptable values are skipped with a warning.
+
+Firefox schema 16 and newer store expiry in milliseconds; Sweet Cookie filters in those units and returns Unix seconds, as it does for older profiles.
+
+`timeoutMs` applies to each OS helper invocation (Keychain, Linux keyring, or Windows DPAPI). Omitted values retain the platform defaults: 3 seconds for Keychain/keyring and 5 seconds for DPAPI.
+
 Chromium expiry reads use SQLite's `readBigInts` constructor option on Node 22.18+ and 24.4+. Earlier Node releases use a text projection to avoid integer overflow while preserving numeric expiry ordering.
 
 ## Profile selection
@@ -110,7 +116,7 @@ Chrome and Edge selectors accept:
 - an array of selectors; or
 - the exported `ALL_PROFILES` sentinel.
 
-Firefox selectors accept a profile name, profile directory, `cookies.sqlite` path, selector array, or `ALL_PROFILES`. When omitted, Firefox uses `default-release` when present and otherwise the first discovered profile.
+Firefox selectors accept a profile name, profile directory, cookie database path, selector array, or `ALL_PROFILES`. Paths need `/` or `\` (e.g. `./a.sqlite`); bare names select profiles. When omitted, Firefox uses `default-release` when present and otherwise the first discovered profile.
 
 Safari has no profile selector. `safariCookiesFile` accepts one or more explicit `Cookies.binarycookies` paths for testing or debugging.
 

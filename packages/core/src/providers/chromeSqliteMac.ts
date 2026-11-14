@@ -115,10 +115,10 @@ export async function getCookiesFromChromeSqliteMac(
 		const key = deriveAes128CbcKeyFromPassword(chromePassword, { iterations: 1003 });
 		const decrypt = (
 			encryptedValue: Uint8Array,
-			opts: { stripHashPrefix: boolean },
+			opts: { stripHashPrefix: boolean; hostKey: string },
 		): string | null =>
 			decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
-				stripHashPrefix: opts.stripHashPrefix,
+				...opts,
 				treatUnknownPrefixAsPlaintext: true,
 			});
 

@@ -4,9 +4,11 @@ export declare function deriveAes128CbcKeyFromPassword(password: string, options
 }): Buffer;
 export declare function decryptChromiumAes128CbcCookieValue(encryptedValue: Uint8Array, keyCandidates: readonly Buffer[], options: {
     stripHashPrefix: boolean;
+    hostKey: string;
     treatUnknownPrefixAsPlaintext?: boolean;
 }): string | null;
 export declare function decryptChromiumAes256GcmCookieValue(encryptedValue: Uint8Array, key: Buffer, options: {
     stripHashPrefix: boolean;
+    hostKey: string;
 }): string | null;
 //# sourceMappingURL=crypto.d.ts.map

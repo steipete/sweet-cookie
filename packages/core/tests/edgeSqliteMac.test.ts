@@ -143,6 +143,7 @@ describeIfDarwin("edge sqlite (mac) provider", () => {
 		expect(res.warnings).toEqual([]);
 		expect(res.cookies).toHaveLength(1);
 		expect(res.cookies[0]?.name).toBe("sid");
+		expect(res.cookies[0]?.source?.browser).toBe("edge");
 		expect(res.cookies[0]?.value).toBe("cookie-value");
 	});
 });
