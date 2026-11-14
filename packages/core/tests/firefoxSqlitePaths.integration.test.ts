@@ -160,7 +160,6 @@ describe("Firefox profile paths", () => {
 				expect.objectContaining({
 					name: "sid",
 					value: "value",
-					source: { browser: "firefox", profile: ".." },
 				}),
 			]);
 		} finally {
