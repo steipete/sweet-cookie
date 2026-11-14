@@ -105,13 +105,15 @@ test("firefox sqlite provider reads schema 16 expiry in milliseconds", async () 
 		const now = Date.now();
 		const validExpiry = now + 3_600_999;
 		try {
-			db.run(`PRAGMA user_version = 16;
-			CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);`);
-			const insert = db.query(
-				"INSERT INTO moz_cookies VALUES (?, 'value', 'example.com', '/', ?, 0, 0, 0)",
-			);
-			insert.run("expired", now - 3_600_000);
-			insert.run("valid", validExpiry);
+			db.query("PRAGMA user_version = 16").run();
+			db.query(
+				`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);`,
+			).run();
+			db.query(
+				`INSERT INTO moz_cookies VALUES
+				('expired', 'value', 'example.com', '/', ${now - 3_600_000}, 0, 0, 0),
+				('valid', 'value', 'example.com', '/', ${validExpiry}, 0, 0, 0)`,
+			).run();
 		} finally {
 			db.close();
 		}

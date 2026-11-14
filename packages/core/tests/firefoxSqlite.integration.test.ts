@@ -28,9 +28,9 @@ describe("Firefox expiry in SQLite", () => {
 			insert.run("valid", (now + 3600) * factor + (factor === 1000 ? 999 : 0));
 			db.close();
 
-			const options = {
+			const options: Parameters<typeof getCookies>[0] = {
 				url: "https://example.com/",
-				browsers: ["firefox"] as const,
+				browsers: ["firefox"],
 				firefoxProfile: dbPath,
 			};
 			const result = await getCookies(options);
