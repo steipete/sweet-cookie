@@ -1,4 +1,4 @@
-import { createCipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import { createCipheriv, createHash, pbkdf2Sync, randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -12,6 +12,7 @@ const describeIfDarwin = process.platform === "darwin" ? describe : describe.ski
 function encryptChromeCookieValueMac(options: {
 	password: string;
 	stripHashPrefix: boolean;
+	hostKey?: string;
 	value: string;
 }): Buffer {
 	const key = pbkdf2Sync(options.password, "saltysalt", 1003, 16, "sha1");
@@ -20,7 +21,12 @@ function encryptChromeCookieValueMac(options: {
 	cipher.setAutoPadding(false);
 
 	const payload = options.stripHashPrefix
-		? Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from(options.value, "utf8")])
+		? Buffer.concat([
+				createHash("sha256")
+					.update(options.hostKey ?? ".example.com")
+					.digest(),
+				Buffer.from(options.value, "utf8"),
+			])
 		: Buffer.from(options.value, "utf8");
 	const padding = 16 - (payload.length % 16);
 	const paddingSize = padding === 0 ? 16 : padding;
@@ -193,6 +199,7 @@ describeIfDarwin("chrome sqlite (mac) integration", () => {
 						encrypted_value: encryptChromeCookieValueMac({
 							password,
 							stripHashPrefix: true,
+							hostKey: "example.com",
 							value: "cookie-value",
 						}),
 					},

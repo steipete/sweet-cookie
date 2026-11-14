@@ -87,7 +87,7 @@ export async function getCookiesFromChromeSqliteMac(options, origins, allowlistN
         // Chromium uses PBKDF2(password, "saltysalt", 1003, 16, sha1) for AES-128-CBC cookie values on macOS.
         const key = deriveAes128CbcKeyFromPassword(chromePassword, { iterations: 1003 });
         const decrypt = (encryptedValue, opts) => decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
-            stripHashPrefix: opts.stripHashPrefix,
+            ...opts,
             treatUnknownPrefixAsPlaintext: true,
         });
         const dbOptions = {

@@ -6,6 +6,7 @@ import { dpapiUnprotect } from "../chromeSqlite/windowsDpapi.js";
 export async function getWindowsChromiumMasterKey(
 	userDataDir: string,
 	label: string,
+	timeoutMs?: number,
 ): Promise<
 	| { ok: true; value: Buffer }
 	| {
@@ -46,7 +47,10 @@ export async function getWindowsChromiumMasterKey(
 		return { ok: false, error: `${label} encrypted_key does not start with DPAPI prefix.` };
 	}
 
-	const unprotected = await dpapiUnprotect(encryptedKey.subarray(prefix.length));
+	const unprotected = await dpapiUnprotect(
+		encryptedKey.subarray(prefix.length),
+		timeoutMs === undefined ? {} : { timeoutMs },
+	);
 	if (!unprotected.ok) {
 		return { ok: false, error: `DPAPI decrypt failed: ${unprotected.error}` };
 	}

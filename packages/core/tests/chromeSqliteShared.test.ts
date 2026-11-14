@@ -92,6 +92,15 @@ describe("chrome sqlite provider (shared)", () => {
 		expect(res.warnings).toEqual([
 			"1 partitioned Chromium cookie(s) were excluded because replay cannot preserve their partition key.",
 		]);
+		expect(res.cookies[0]?.source?.browser).toBe("chrome");
+
+		const edgeRes = await getCookiesFromChromeSqliteDb(
+			{ dbPath, includeExpired: true, browser: "edge" },
+			["https://chatgpt.com/"],
+			null,
+			() => null,
+		);
+		expect(edgeRes.cookies[0]?.source?.browser).toBe("edge");
 
 		const subdomainRes = await getCookiesFromChromeSqliteDb(
 			{ dbPath, includeExpired: true },
@@ -212,7 +221,10 @@ describe("chrome sqlite provider (shared)", () => {
 		);
 
 		expect(res.cookies[0]?.value).toBe("yes");
-		expect(decrypt).toHaveBeenCalled();
+		expect(decrypt).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]), {
+			stripHashPrefix: true,
+			hostKey: ".chatgpt.com",
+		});
 	});
 
 	it("supports BigInt sqlite rows without dropping cookies", async () => {
@@ -322,7 +334,7 @@ describe("chrome sqlite provider (shared)", () => {
 		expect(res.cookies[0]?.expires).toBe(1_801_994_396);
 	});
 
-	it("warns only for v20 encrypted values that fail to decrypt", async () => {
+	it("distinguishes v20 failures from other undecryptable values", async () => {
 		vi.resetModules();
 
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-chrome-shared-"));
@@ -397,6 +409,7 @@ describe("chrome sqlite provider (shared)", () => {
 
 		expect(res.cookies.map((cookie) => cookie.name)).toEqual(["v20_ok"]);
 		expect(res.warnings).toEqual([
+			"1 Chromium cookie(s) could not be decrypted or failed host binding verification.",
 			"1 Chromium cookie(s) use v20 App-Bound Encryption and could not be decrypted. Use the extension exporter or Chrome DevTools Protocol for those cookies.",
 		]);
 		expect(decrypt).toHaveBeenCalledTimes(3);

@@ -1,4 +1,4 @@
-import { createCipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import { createCipheriv, createHash, pbkdf2Sync, randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -20,7 +20,10 @@ function encryptAes128CbcCookieValue(options: {
 	cipher.setAutoPadding(false);
 
 	const payload = options.stripHashPrefix
-		? Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from(options.value, "utf8")])
+		? Buffer.concat([
+				createHash("sha256").update(".example.com").digest(),
+				Buffer.from(options.value, "utf8"),
+			])
 		: Buffer.from(options.value, "utf8");
 
 	const padding = 16 - (payload.length % 16);

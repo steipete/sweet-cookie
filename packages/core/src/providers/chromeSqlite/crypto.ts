@@ -1,4 +1,4 @@
-import { createDecipheriv, pbkdf2Sync } from "node:crypto";
+import { createDecipheriv, createHash, pbkdf2Sync, timingSafeEqual } from "node:crypto";
 
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
@@ -22,7 +22,7 @@ export function deriveAes128CbcKeyFromPassword(
 export function decryptChromiumAes128CbcCookieValue(
 	encryptedValue: Uint8Array,
 	keyCandidates: readonly Buffer[],
-	options: { stripHashPrefix: boolean; treatUnknownPrefixAsPlaintext?: boolean },
+	options: { stripHashPrefix: boolean; hostKey: string; treatUnknownPrefixAsPlaintext?: boolean },
 ): string | null {
 	const buf = Buffer.from(encryptedValue);
 	if (buf.length < 3) {
@@ -38,12 +38,12 @@ export function decryptChromiumAes128CbcCookieValue(
 		if (options.treatUnknownPrefixAsPlaintext === false) {
 			return null;
 		}
-		return decodeCookieValueBytes(buf, false);
+		return decodeCookieValueBytes(buf, options);
 	}
 
 	const ciphertext = buf.subarray(3);
 	if (!ciphertext.length) {
-		return "";
+		return options.stripHashPrefix ? null : "";
 	}
 
 	for (const key of keyCandidates) {
@@ -52,7 +52,7 @@ export function decryptChromiumAes128CbcCookieValue(
 		if (!decrypted) {
 			continue;
 		}
-		const decoded = decodeCookieValueBytes(decrypted, options.stripHashPrefix);
+		const decoded = decodeCookieValueBytes(decrypted, options);
 		if (decoded !== null) {
 			return decoded;
 		}
@@ -64,7 +64,7 @@ export function decryptChromiumAes128CbcCookieValue(
 export function decryptChromiumAes256GcmCookieValue(
 	encryptedValue: Uint8Array,
 	key: Buffer,
-	options: { stripHashPrefix: boolean },
+	options: { stripHashPrefix: boolean; hostKey: string },
 ): string | null {
 	const buf = Buffer.from(encryptedValue);
 	if (buf.length < 3) {
@@ -92,7 +92,7 @@ export function decryptChromiumAes256GcmCookieValue(
 		const decipher = createDecipheriv("aes-256-gcm", key, nonce);
 		decipher.setAuthTag(authenticationTag);
 		const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-		return decodeCookieValueBytes(plaintext, options.stripHashPrefix);
+		return decodeCookieValueBytes(plaintext, options);
 	} catch {
 		return null;
 	}
@@ -122,9 +122,22 @@ function removePkcs7Padding(value: Buffer): Buffer {
 	return value.subarray(0, value.length - padding);
 }
 
-function decodeCookieValueBytes(value: Buffer, stripHashPrefix: boolean): string | null {
-	// Chromium >= 24 prepends a 32-byte hash to cookie values.
-	const bytes = stripHashPrefix && value.length >= 32 ? value.subarray(32) : value;
+function decodeCookieValueBytes(
+	value: Buffer,
+	options: { stripHashPrefix: boolean; hostKey: string },
+): string | null {
+	// Chromium schema 24 binds encrypted values to the exact stored host, including its leading dot.
+	if (
+		options.stripHashPrefix &&
+		(value.length < 32 ||
+			!timingSafeEqual(
+				value.subarray(0, 32),
+				createHash("sha256").update(options.hostKey).digest(),
+			))
+	) {
+		return null;
+	}
+	const bytes = options.stripHashPrefix ? value.subarray(32) : value;
 	try {
 		return stripLeadingControlChars(UTF8_DECODER.decode(bytes));
 	} catch {

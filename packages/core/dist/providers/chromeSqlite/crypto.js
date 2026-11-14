@@ -1,4 +1,4 @@
-import { createDecipheriv, pbkdf2Sync } from "node:crypto";
+import { createDecipheriv, createHash, pbkdf2Sync, timingSafeEqual } from "node:crypto";
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 export function getChromiumEncryptedValuePrefix(encryptedValue) {
     if (encryptedValue.length < 3) {
@@ -25,11 +25,11 @@ export function decryptChromiumAes128CbcCookieValue(encryptedValue, keyCandidate
         if (options.treatUnknownPrefixAsPlaintext === false) {
             return null;
         }
-        return decodeCookieValueBytes(buf, false);
+        return decodeCookieValueBytes(buf, options);
     }
     const ciphertext = buf.subarray(3);
     if (!ciphertext.length) {
-        return "";
+        return options.stripHashPrefix ? null : "";
     }
     for (const key of keyCandidates) {
         // Try multiple candidates because Linux may fall back to empty passwords depending on keyring state.
@@ -37,7 +37,7 @@ export function decryptChromiumAes128CbcCookieValue(encryptedValue, keyCandidate
         if (!decrypted) {
             continue;
         }
-        const decoded = decodeCookieValueBytes(decrypted, options.stripHashPrefix);
+        const decoded = decodeCookieValueBytes(decrypted, options);
         if (decoded !== null) {
             return decoded;
         }
@@ -68,7 +68,7 @@ export function decryptChromiumAes256GcmCookieValue(encryptedValue, key, options
         const decipher = createDecipheriv("aes-256-gcm", key, nonce);
         decipher.setAuthTag(authenticationTag);
         const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-        return decodeCookieValueBytes(plaintext, options.stripHashPrefix);
+        return decodeCookieValueBytes(plaintext, options);
     }
     catch {
         return null;
@@ -97,9 +97,14 @@ function removePkcs7Padding(value) {
     }
     return value.subarray(0, value.length - padding);
 }
-function decodeCookieValueBytes(value, stripHashPrefix) {
-    // Chromium >= 24 prepends a 32-byte hash to cookie values.
-    const bytes = stripHashPrefix && value.length >= 32 ? value.subarray(32) : value;
+function decodeCookieValueBytes(value, options) {
+    // Chromium schema 24 binds encrypted values to the exact stored host, including its leading dot.
+    if (options.stripHashPrefix &&
+        (value.length < 32 ||
+            !timingSafeEqual(value.subarray(0, 32), createHash("sha256").update(options.hostKey).digest()))) {
+        return null;
+    }
+    const bytes = options.stripHashPrefix ? value.subarray(32) : value;
     try {
         return stripLeadingControlChars(UTF8_DECODER.decode(bytes));
     }

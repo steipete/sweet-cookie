@@ -19,6 +19,7 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
     for (const db of dbs) {
         const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
             app: db.keyringApp,
+            timeoutMs: options.timeoutMs,
         });
         warnings.push(...keyringWarnings);
         // Linux uses multiple schemes depending on distro/keyring availability.
@@ -31,13 +32,13 @@ export async function getCookiesFromChromeSqliteLinux(options, origins, allowlis
             const prefix = Buffer.from(encryptedValue).subarray(0, 3).toString("utf8");
             if (prefix === "v10") {
                 return decryptChromiumAes128CbcCookieValue(encryptedValue, [v10Key, emptyKey], {
-                    stripHashPrefix: opts.stripHashPrefix,
+                    ...opts,
                     treatUnknownPrefixAsPlaintext: false,
                 });
             }
             if (prefix === "v11") {
                 return decryptChromiumAes128CbcCookieValue(encryptedValue, [v11Key, emptyKey], {
-                    stripHashPrefix: opts.stripHashPrefix,
+                    ...opts,
                     treatUnknownPrefixAsPlaintext: false,
                 });
             }

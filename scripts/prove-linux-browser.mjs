@@ -192,6 +192,7 @@ function findDecryptableV11Cookie(dbPath, password) {
 			}
 			const value = decryptChromiumAes128CbcCookieValue(row.encrypted_value, [key], {
 				stripHashPrefix: Number.isFinite(metaVersion) && metaVersion >= 24,
+				hostKey: row.host_key,
 				treatUnknownPrefixAsPlaintext: false,
 			});
 			if (value !== null) {

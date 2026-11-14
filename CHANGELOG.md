@@ -2,6 +2,12 @@
 
 ## 0.4.5 - Unreleased
 
+- Fix Firefox schema 16+ expiry filtering and preserve persistent-cookie expiries; accept renamed Firefox databases and directories named `cookies.sqlite`. Thanks @privatenumber. (#59, #63, #68, #69)
+- Verify Chromium schema 24+ host hashes before returning decrypted cookies, rejecting mismatched and truncated values with warnings. Thanks @privatenumber for the report. (#60)
+- Preserve Edge source labels and ignore invalid relative Linux XDG configuration roots. Thanks @SebTardif and @privatenumber. (#61, #65, #66)
+- Apply caller-provided helper timeouts to Linux keyring and Windows DPAPI operations. Thanks @privatenumber. (#62, #67)
+- Development: refresh Vite, lint, and formatting tooling without changing the Node runtime floor.
+
 - Development: patch Vite and Vitest security advisories and refresh compatible Node/Chrome types and lint tooling while preserving the Node 22 runtime floor. Thanks @dependabot. (#58)
 - CI: move macOS tests and builds to the macOS 27 `xcode-27` runner while retaining the Node 22 runtime floor.
 

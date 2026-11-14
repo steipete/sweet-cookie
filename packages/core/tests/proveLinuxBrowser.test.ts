@@ -1,4 +1,4 @@
-import { createCipheriv, pbkdf2Sync } from "node:crypto";
+import { createCipheriv, createHash, pbkdf2Sync } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -74,7 +74,10 @@ itIfLinux("reports KWallet after completing a KDE proof without secret-tool", ()
 function writeChromiumCookieDb(dbPath: string, password: string): void {
 	const key = pbkdf2Sync(password, "saltysalt", 1, 16, "sha1");
 	const cipher = createCipheriv("aes-128-cbc", key, Buffer.alloc(16, 0x20));
-	const payload = Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from("synthetic-proof")]);
+	const payload = Buffer.concat([
+		createHash("sha256").update(".example.com").digest(),
+		Buffer.from("synthetic-proof"),
+	]);
 	const encryptedValue = Buffer.concat([
 		Buffer.from("v11"),
 		cipher.update(payload),

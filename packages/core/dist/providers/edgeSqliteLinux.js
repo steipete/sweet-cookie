@@ -15,6 +15,7 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
     }
     const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
         app: "edge",
+        timeoutMs: options.timeoutMs,
     });
     // Linux uses multiple schemes depending on distro/keyring availability.
     // - v10 often uses the hard-coded "peanuts" password
@@ -26,13 +27,13 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
         const prefix = Buffer.from(encryptedValue).subarray(0, 3).toString("utf8");
         if (prefix === "v10") {
             return decryptChromiumAes128CbcCookieValue(encryptedValue, [v10Key, emptyKey], {
-                stripHashPrefix: opts.stripHashPrefix,
+                ...opts,
                 treatUnknownPrefixAsPlaintext: false,
             });
         }
         if (prefix === "v11") {
             return decryptChromiumAes128CbcCookieValue(encryptedValue, [v11Key, emptyKey], {
-                stripHashPrefix: opts.stripHashPrefix,
+                ...opts,
                 treatUnknownPrefixAsPlaintext: false,
             });
         }
@@ -41,7 +42,7 @@ export async function getCookiesFromEdgeSqliteLinux(options, origins, allowlistN
     const warnings = [...keyringWarnings];
     const cookies = [];
     for (const db of dbs) {
-        const dbOptions = { dbPath: db.dbPath };
+        const dbOptions = { dbPath: db.dbPath, browser: "edge" };
         if (db.profile !== undefined) {
             dbOptions.profile = db.profile;
         }

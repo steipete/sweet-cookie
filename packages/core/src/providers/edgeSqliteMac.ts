@@ -52,9 +52,12 @@ export async function getCookiesFromEdgeSqliteMac(
 
 	// Chromium uses PBKDF2(password, "saltysalt", 1003, 16, sha1) for AES-128-CBC cookie values on macOS.
 	const key = deriveAes128CbcKeyFromPassword(edgePassword, { iterations: 1003 });
-	const decrypt = (encryptedValue: Uint8Array, opts: { stripHashPrefix: boolean }): string | null =>
+	const decrypt = (
+		encryptedValue: Uint8Array,
+		opts: { stripHashPrefix: boolean; hostKey: string },
+	): string | null =>
 		decryptChromiumAes128CbcCookieValue(encryptedValue, [key], {
-			stripHashPrefix: opts.stripHashPrefix,
+			...opts,
 			treatUnknownPrefixAsPlaintext: true,
 		});
 
@@ -66,7 +69,8 @@ export async function getCookiesFromEdgeSqliteMac(
 			storeId?: string;
 			includeExpired?: boolean;
 			debug?: boolean;
-		} = { dbPath: db.dbPath };
+			browser: "edge";
+		} = { dbPath: db.dbPath, browser: "edge" };
 		if (db.profile !== undefined) {
 			dbOptions.profile = db.profile;
 		}

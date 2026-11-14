@@ -59,7 +59,7 @@ vi.mock("node:sqlite", () => {
 			nodeSqlite.lastSql = sql;
 			return {
 				all: () =>
-					sql === "PRAGMA table_info(moz_cookies);"
+					sql.includes("pragma_table_info('moz_cookies')")
 						? nodeSqlite.columns.map((name) => ({ name }))
 						: nodeSqlite.rows,
 			};

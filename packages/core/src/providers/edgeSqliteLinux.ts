@@ -9,7 +9,12 @@ import { resolveChromiumCookiesDbsLinux } from "./chromium/linuxPaths.js";
 import type { ChromiumProfileSelector } from "./chromium/paths.js";
 
 export async function getCookiesFromEdgeSqliteLinux(
-	options: { profile?: ChromiumProfileSelector; includeExpired?: boolean; debug?: boolean },
+	options: {
+		profile?: ChromiumProfileSelector;
+		includeExpired?: boolean;
+		debug?: boolean;
+		timeoutMs?: number;
+	},
 	origins: string[],
 	allowlistNames: Set<string> | null,
 ): Promise<GetCookiesResult> {
@@ -26,6 +31,7 @@ export async function getCookiesFromEdgeSqliteLinux(
 
 	const { password, warnings: keyringWarnings } = await getLinuxChromiumSafeStoragePassword({
 		app: "edge",
+		timeoutMs: options.timeoutMs,
 	});
 
 	// Linux uses multiple schemes depending on distro/keyring availability.
@@ -37,18 +43,18 @@ export async function getCookiesFromEdgeSqliteLinux(
 
 	const decrypt = (
 		encryptedValue: Uint8Array,
-		opts: { stripHashPrefix: boolean },
+		opts: { stripHashPrefix: boolean; hostKey: string },
 	): string | null => {
 		const prefix = Buffer.from(encryptedValue).subarray(0, 3).toString("utf8");
 		if (prefix === "v10") {
 			return decryptChromiumAes128CbcCookieValue(encryptedValue, [v10Key, emptyKey], {
-				stripHashPrefix: opts.stripHashPrefix,
+				...opts,
 				treatUnknownPrefixAsPlaintext: false,
 			});
 		}
 		if (prefix === "v11") {
 			return decryptChromiumAes128CbcCookieValue(encryptedValue, [v11Key, emptyKey], {
-				stripHashPrefix: opts.stripHashPrefix,
+				...opts,
 				treatUnknownPrefixAsPlaintext: false,
 			});
 		}
@@ -64,7 +70,8 @@ export async function getCookiesFromEdgeSqliteLinux(
 			storeId?: string;
 			includeExpired?: boolean;
 			debug?: boolean;
-		} = { dbPath: db.dbPath };
+			browser: "edge";
+		} = { dbPath: db.dbPath, browser: "edge" };
 		if (db.profile !== undefined) {
 			dbOptions.profile = db.profile;
 		}
