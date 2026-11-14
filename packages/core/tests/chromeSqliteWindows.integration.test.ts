@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { createCipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -34,7 +34,10 @@ function encryptAes256GcmCookieValue(options: {
 	const cipher = createCipheriv("aes-256-gcm", options.key, nonce);
 
 	const payload = options.stripHashPrefix
-		? Buffer.concat([Buffer.alloc(32, 0xff), Buffer.from(options.value, "utf8")])
+		? Buffer.concat([
+				createHash("sha256").update(".example.com").digest(),
+				Buffer.from(options.value, "utf8"),
+			])
 		: Buffer.from(options.value, "utf8");
 
 	const ciphertext = Buffer.concat([cipher.update(payload), cipher.final()]);
