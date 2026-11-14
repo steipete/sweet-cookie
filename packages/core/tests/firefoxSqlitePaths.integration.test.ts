@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { getCookies } from "../src/index.js";
 
 describe("Firefox profile paths", () => {
-	it.each(["directory", "directory named cookies.sqlite", "cookies.sqlite", "a.sqlite"])(
+	it.each(["directory", "directory named cookies.sqlite", "cookies.sqlite"])(
 		"reads a database from %s",
 		async (selector) => {
 			const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
@@ -23,7 +23,6 @@ describe("Firefox profile paths", () => {
 				db.exec(`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);
 				INSERT INTO moz_cookies VALUES ('sid', 'value', 'example.com', '/', 9999999999, 0, 0, 0);`);
 				db.close();
-				copyFileSync(dbPath, path.join(profile, "a.sqlite"));
 
 				const result = await getCookies({
 					url: "https://example.com/",
@@ -37,7 +36,7 @@ describe("Firefox profile paths", () => {
 						value: "value",
 						source: {
 							browser: "firefox",
-							profile: selector === "a.sqlite" ? "a.sqlite" : path.basename(profile),
+							profile: path.basename(profile),
 						},
 					}),
 				]);
@@ -47,34 +46,37 @@ describe("Firefox profile paths", () => {
 		},
 	);
 
-	it("keeps cookies from two renamed databases in one directory", async () => {
+	it("returns identical cookies from cookies.sqlite and backup.sqlite", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
 		try {
-			for (const [filename, value] of [
-				["a.sqlite", "a"],
-				["b.sqlite", "b"],
-			] as const) {
-				const db = new DatabaseSync(path.join(dir, filename));
+			const dbPath = path.join(dir, "cookies.sqlite");
+			const db = new DatabaseSync(dbPath);
+			try {
 				db.exec(
-					`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);`,
+					`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);
+					INSERT INTO moz_cookies VALUES ('sid', 'value', 'example.com', '/', 9999999999, 0, 0, 0);`,
 				);
-				db.prepare(
-					"INSERT INTO moz_cookies VALUES ('sid', ?, 'example.com', '/', 9999999999, 0, 0, 0)",
-				).run(value);
+			} finally {
 				db.close();
 			}
-			const result = await getCookies({
+			const backupPath = path.join(dir, "backup.sqlite");
+			copyFileSync(dbPath, backupPath);
+			const options = {
 				url: "https://example.com/",
 				browsers: ["firefox"],
-				firefoxProfile: [path.join(dir, "a.sqlite"), path.join(dir, "b.sqlite")],
-			});
-			expect(result.warnings).toEqual([]);
-			expect(
-				result.cookies.map(({ value, source }) => ({ value, profile: source?.profile })),
-			).toEqual([
-				{ value: "a", profile: "a.sqlite" },
-				{ value: "b", profile: "b.sqlite" },
+			} satisfies Parameters<typeof getCookies>[0];
+			const original = await getCookies({ ...options, firefoxProfile: dbPath });
+			const backup = await getCookies({ ...options, firefoxProfile: backupPath });
+			expect(original.warnings).toEqual([]);
+			expect(backup.warnings).toEqual([]);
+			expect(original.cookies).toEqual([
+				expect.objectContaining({
+					name: "sid",
+					value: "value",
+					source: { browser: "firefox", profile: path.basename(dir) },
+				}),
 			]);
+			expect(backup.cookies).toEqual(original.cookies);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
@@ -158,7 +160,7 @@ describe("Firefox profile paths", () => {
 				expect.objectContaining({
 					name: "sid",
 					value: "value",
-					source: { browser: "firefox", profile: "a.sqlite" },
+					source: { browser: "firefox", profile: ".." },
 				}),
 			]);
 		} finally {

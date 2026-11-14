@@ -299,25 +299,18 @@ function resolveFirefoxCookiesDbs(
 					: [];
 
 	if (typeof profile === "string" && looksLikePath(profile)) {
-		let stat;
+		let isFile: boolean;
 		try {
-			stat = statSync(profile);
+			isFile = statSync(profile).isFile();
 		} catch {
 			return [];
 		}
-		const isFile = stat.isFile();
-		if (!isFile && !stat.isDirectory()) {
-			return [];
-		}
 		const candidate = isFile ? profile : path.join(profile, "cookies.sqlite");
-		if (!existsSync(candidate)) {
+		if (!isFile && !existsSync(candidate)) {
 			return [];
 		}
 		const resolved: { dbPath: string; profile?: string } = { dbPath: candidate };
-		const profileName =
-			isFile && path.basename(profile).endsWith("cookies.sqlite")
-				? path.basename(path.dirname(profile))
-				: path.basename(profile);
+		const profileName = path.basename(isFile ? path.dirname(profile) : profile);
 		if (profileName) {
 			resolved.profile = profileName;
 		}
