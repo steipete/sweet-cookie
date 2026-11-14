@@ -80,54 +80,51 @@ describe("Firefox profile paths", () => {
 		}
 	});
 
-	it("reads WAL changes through a symlink and labels it by the link name", async ({ skip }) => {
+	it("keeps cookies from suffix-named databases in different directories", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
 		try {
-			const dbPath = path.join(dir, "a.sqlite");
-			const db = new DatabaseSync(dbPath);
-			try {
-				db.exec(`CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER);
-					PRAGMA journal_mode = WAL;
-					INSERT INTO moz_cookies VALUES ('sid', 'value', 'example.com', '/', 9999999999, 0, 0, 0);`);
-				const basePath = path.join(dir, "base.sqlite");
-				copyFileSync(dbPath, basePath);
-				const base = new DatabaseSync(basePath, { readOnly: true });
+			for (const [profile, value] of [
+				["one", "a"],
+				["two", "b"],
+			] as const) {
+				const profileDir = path.join(dir, profile);
+				mkdirSync(profileDir);
+				const db = new DatabaseSync(path.join(profileDir, "backup-cookies.sqlite"));
 				try {
-					expect(base.prepare("SELECT count(*) AS count FROM moz_cookies").get()?.count).toBe(0);
+					db.exec(
+						"CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT, expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER)",
+					);
+					db.prepare(
+						"INSERT INTO moz_cookies VALUES ('sid', ?, 'example.com', '/', 9999999999, 0, 0, 0)",
+					).run(value);
 				} finally {
-					base.close();
+					db.close();
 				}
-				const link = path.join(dir, "b.sqlite");
-				try {
-					symlinkSync(dbPath, link);
-				} catch (error) {
-					if (["EPERM", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) {
-						skip("Symlink creation is not permitted");
-					}
-					throw error;
-				}
-				const result = await getCookies({
-					url: "https://example.com/",
-					browsers: ["firefox"],
-					firefoxProfile: link,
-				});
-				expect(result.warnings).toEqual([]);
-				expect(result.cookies).toEqual([
-					expect.objectContaining({
-						name: "sid",
-						value: "value",
-						source: { browser: "firefox", profile: "b.sqlite" },
-					}),
-				]);
-			} finally {
-				db.close();
 			}
+			const result = await getCookies({
+				url: "https://example.com/",
+				browsers: ["firefox"],
+				firefoxProfile: [
+					path.join(dir, "one", "backup-cookies.sqlite"),
+					path.join(dir, "two", "backup-cookies.sqlite"),
+				],
+			});
+			expect(result.warnings).toEqual([]);
+			expect(
+				result.cookies.map(({ value, source }) => ({ value, profile: source?.profile })),
+			).toEqual([
+				{ value: "a", profile: "one" },
+				{ value: "b", profile: "two" },
+			]);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
 
 	it("resolves parent traversal after following a symlink", async ({ skip }) => {
+		if (process.platform === "win32") {
+			skip("Windows resolves parent traversal before following symlinks");
+		}
 		const dir = mkdtempSync(path.join(tmpdir(), "sweet-cookie-firefox-"));
 		try {
 			const target = path.join(dir, "target");

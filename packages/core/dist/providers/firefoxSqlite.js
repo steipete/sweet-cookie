@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, realpathSync, rmSync, statSync, } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { ALL_PROFILES } from "../types.js";
@@ -233,19 +233,12 @@ function resolveFirefoxCookiesDbs(profile) {
         if (!isFile && !stat.isDirectory()) {
             return [];
         }
-        let candidate;
-        try {
-            // The non-native realpathSync normalizes `..` before following symlinks.
-            candidate = isFile ? realpathSync.native(profile) : path.join(profile, "cookies.sqlite");
-        }
-        catch {
-            return [];
-        }
+        const candidate = isFile ? profile : path.join(profile, "cookies.sqlite");
         if (!existsSync(candidate)) {
             return [];
         }
         const resolved = { dbPath: candidate };
-        const profileName = isFile && path.basename(profile) === "cookies.sqlite"
+        const profileName = isFile && path.basename(profile).endsWith("cookies.sqlite")
             ? path.basename(path.dirname(profile))
             : path.basename(profile);
         if (profileName) {
