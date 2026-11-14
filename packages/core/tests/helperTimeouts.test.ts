@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -28,10 +28,7 @@ vi.mock("../src/providers/chromeSqlite/shared.js", () => ({
 	getCookiesFromChromeSqliteDb: async () => ({ cookies: [], warnings: [] }),
 }));
 
-import { getCookiesFromChromeSqliteLinux } from "../src/providers/chromeSqliteLinux.js";
-import { getCookiesFromEdgeSqliteLinux } from "../src/providers/edgeSqliteLinux.js";
-import { getCookiesFromChromeSqliteWindows } from "../src/providers/chromeSqliteWindows.js";
-import { getCookiesFromEdgeSqliteWindows } from "../src/providers/edgeSqliteWindows.js";
+import { getCookies } from "../src/public.js";
 import {
 	getLinuxBraveSafeStoragePassword,
 	getLinuxChromeSafeStoragePassword,
@@ -46,24 +43,34 @@ describe("OS helper timeouts", () => {
 		vi.stubEnv("SWEET_COOKIE_BRAVE_SAFE_STORAGE_PASSWORD", "");
 	});
 
-	it.each([
-		["Chrome", getCookiesFromChromeSqliteLinux],
-		["Edge", getCookiesFromEdgeSqliteLinux],
-	])("passes timeouts through the Linux %s provider", async (_name, provider) => {
-		for (const timeoutMs of [100, 9_000, undefined]) {
-			for (const backend of ["gnome", "kwallet"]) {
-				state.calls = [];
-				vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", backend);
-				await provider(timeoutMs === undefined ? {} : { timeoutMs }, ["https://example.com"], null);
-				expect(state.calls).toEqual(
-					(backend === "gnome"
-						? ["secret-tool", "secret-tool"]
-						: ["dbus-send", "kwallet-query"]
-					).map((command) => ({ command, timeoutMs: timeoutMs ?? 3_000 })),
-				);
+	it.each(["chrome", "edge"] as const)(
+		"passes getCookies timeouts to Linux %s helpers",
+		async (browser) => {
+			const actualPlatform = process.platform;
+			Object.defineProperty(process, "platform", { value: "linux" });
+			try {
+				for (const timeoutMs of [100, 9_000, undefined]) {
+					for (const backend of ["gnome", "kwallet"]) {
+						state.calls = [];
+						vi.stubEnv("SWEET_COOKIE_LINUX_KEYRING", backend);
+						await getCookies({
+							url: "https://example.com/",
+							browsers: [browser],
+							...(timeoutMs === undefined ? {} : { timeoutMs }),
+						});
+						expect(state.calls).toEqual(
+							(backend === "gnome"
+								? ["secret-tool", "secret-tool"]
+								: ["dbus-send", "kwallet-query"]
+							).map((command) => ({ command, timeoutMs: timeoutMs ?? 3_000 })),
+						);
+					}
+				}
+			} finally {
+				Object.defineProperty(process, "platform", { value: actualPlatform });
 			}
-		}
-	});
+		},
+	);
 
 	it.each([
 		["Chrome", getLinuxChromeSafeStoragePassword],
@@ -73,19 +80,32 @@ describe("OS helper timeouts", () => {
 		expect(state.calls.map((call) => call.timeoutMs)).toEqual([123, 123]);
 	});
 
-	it.each([
-		["Chrome", getCookiesFromChromeSqliteWindows],
-		["Edge", getCookiesFromEdgeSqliteWindows],
-	])("passes timeouts through the Windows %s provider", async (_name, provider) => {
-		state.directory = mkdtempSync(path.join(tmpdir(), "sweet-cookie-timeout-"));
-		writeFileSync(
-			path.join(state.directory, "Local State"),
-			JSON.stringify({ os_crypt: { encrypted_key: Buffer.from("DPAPIsid").toString("base64") } }),
-		);
-		for (const timeoutMs of [100, 9_000, undefined]) {
-			state.calls = [];
-			await provider(timeoutMs === undefined ? {} : { timeoutMs }, ["https://example.com"], null);
-			expect(state.calls).toEqual([{ command: "powershell", timeoutMs: timeoutMs ?? 5_000 }]);
-		}
-	});
+	it.each(["chrome", "edge"] as const)(
+		"passes getCookies timeouts to Windows %s helpers",
+		async (browser) => {
+			const actualPlatform = process.platform;
+			state.directory = mkdtempSync(path.join(tmpdir(), "sweet-cookie-timeout-"));
+			Object.defineProperty(process, "platform", { value: "win32" });
+			try {
+				writeFileSync(
+					path.join(state.directory, "Local State"),
+					JSON.stringify({
+						os_crypt: { encrypted_key: Buffer.from("DPAPIsid").toString("base64") },
+					}),
+				);
+				for (const timeoutMs of [100, 9_000, undefined]) {
+					state.calls = [];
+					await getCookies({
+						url: "https://example.com/",
+						browsers: [browser],
+						...(timeoutMs === undefined ? {} : { timeoutMs }),
+					});
+					expect(state.calls).toEqual([{ command: "powershell", timeoutMs: timeoutMs ?? 5_000 }]);
+				}
+			} finally {
+				Object.defineProperty(process, "platform", { value: actualPlatform });
+				rmSync(state.directory, { recursive: true, force: true });
+			}
+		},
+	);
 });
