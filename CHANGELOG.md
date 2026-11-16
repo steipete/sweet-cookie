@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.5 - Unreleased
+## Unreleased
+
+## 0.4.5 - 2026-11-15
+
+**Highlights:** Reliable Firefox cookie expiries and profile selection, verified Chromium host hashes, and consistent helper timeouts; includes dependency security fixes.
 
 - Fix Firefox schema 16+ expiry filtering and preserve persistent-cookie expiries; accept renamed Firefox databases and directories named `cookies.sqlite`. Thanks @privatenumber. (#59, #63, #68, #69)
 - Verify Chromium schema 24+ host hashes before returning decrypted cookies, rejecting mismatched and truncated values with warnings. Thanks @privatenumber for the report. (#60)
