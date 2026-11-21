@@ -68,7 +68,7 @@ const cookieHeader = toCookieHeader(cookies, { dedupeByName: true });
 | Option                | Behavior                                                                                                       |
 | --------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `url`                 | Required base URL for origin filtering. Include a protocol.                                                    |
-| `origins`             | Additional origins for OAuth, SSO, or multi-domain flows.                                                      |
+| `origins`             | Additional origins for OAuth, SSO, or multi-domain flows; large lists are supported by SQLite-backed browsers. |
 | `names`               | Cookie-name allowlist.                                                                                         |
 | `browsers`            | Ordered sources: `chrome`, `edge`, `firefox`, `safari`. Defaults to Chrome, Safari, Firefox.                   |
 | `mode`                | `merge` combines backends; `first` stops after the first backend with cookies.                                 |

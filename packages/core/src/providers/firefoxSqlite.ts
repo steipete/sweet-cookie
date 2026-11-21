@@ -6,6 +6,7 @@ import { ALL_PROFILES, type Cookie, type CookieSameSite, type GetCookiesResult }
 import { hostMatchesCookieDomain } from "../util/hostMatch.js";
 import { importNodeSqlite } from "../util/nodeSqlite.js";
 import { isBunRuntime } from "../util/runtime.js";
+import { buildHostWhereClause } from "../util/sqliteHosts.js";
 
 export async function getCookiesFromFirefox(
 	options: { profile?: string | typeof ALL_PROFILES; includeExpired?: boolean },
@@ -60,7 +61,7 @@ async function getCookiesFromFirefoxDb(
 	}
 
 	const hosts = origins.map((o) => new URL(o).hostname);
-	const where = buildHostWhereClause(hosts);
+	const where = buildHostWhereClause(hosts, "host");
 	const bunRuntime = isBunRuntime();
 	const sqliteLabel = bunRuntime ? "bun:sqlite" : "node:sqlite";
 	const columnsSql =
@@ -390,41 +391,6 @@ function copySidecar(sourceDbPath: string, target: string, suffix: "-wal" | "-sh
 	} catch {
 		// ignore
 	}
-}
-
-function buildHostWhereClause(hosts: string[]): string {
-	const clauses: string[] = [];
-	for (const host of hosts) {
-		for (const candidate of expandHostCandidates(host)) {
-			const escaped = sqlLiteral(candidate);
-			const escapedDot = sqlLiteral(`.${candidate}`);
-			const escapedLike = sqlLiteral(`%.${candidate}`);
-			clauses.push(`host = ${escaped}`);
-			clauses.push(`host = ${escapedDot}`);
-			clauses.push(`host LIKE ${escapedLike}`);
-		}
-	}
-	return clauses.length ? clauses.join(" OR ") : "1=0";
-}
-
-function expandHostCandidates(host: string): string[] {
-	const parts = host.split(".").filter(Boolean);
-	if (parts.length <= 1) {
-		return [host];
-	}
-	const candidates = new Set<string>([host]);
-	for (let index = 1; index <= parts.length - 2; index += 1) {
-		const candidate = parts.slice(index).join(".");
-		if (candidate) {
-			candidates.add(candidate);
-		}
-	}
-	return Array.from(candidates);
-}
-
-function sqlLiteral(value: string): string {
-	const escaped = value.replaceAll("'", "''");
-	return `'${escaped}'`;
 }
 
 function normalizeFirefoxExpiry(expiry?: string): number | undefined {
