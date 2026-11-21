@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix Chromium and Firefox reads with large origin lists by balancing SQLite host filters, preserving host-only cookie scope. Thanks @privatenumber. (#72)
+- Development: refresh Vitest, coverage, lint, and formatting tooling and compatible transitive dependencies without changing the Node runtime floor.
+
 ## 0.4.5 - 2026-11-15
 
 **Highlights:** Reliable Firefox cookie expiries and profile selection, verified Chromium host hashes, and consistent helper timeouts; includes dependency security fixes.

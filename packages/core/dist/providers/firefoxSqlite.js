@@ -5,6 +5,7 @@ import { ALL_PROFILES } from "../types.js";
 import { hostMatchesCookieDomain } from "../util/hostMatch.js";
 import { importNodeSqlite } from "../util/nodeSqlite.js";
 import { isBunRuntime } from "../util/runtime.js";
+import { buildHostWhereClause } from "../util/sqliteHosts.js";
 export async function getCookiesFromFirefox(options, origins, allowlistNames) {
     const warnings = [];
     const dbPaths = resolveFirefoxCookiesDbs(options.profile);
@@ -45,7 +46,7 @@ async function getCookiesFromFirefoxDb(dbPath, options, origins, allowlistNames)
         return { cookies: [], warnings };
     }
     const hosts = origins.map((o) => new URL(o).hostname);
-    const where = buildHostWhereClause(hosts);
+    const where = buildHostWhereClause(hosts, "host");
     const bunRuntime = isBunRuntime();
     const sqliteLabel = bunRuntime ? "bun:sqlite" : "node:sqlite";
     const columnsSql = "SELECT name, (SELECT user_version FROM pragma_user_version) AS user_version FROM pragma_table_info('moz_cookies');";
@@ -304,38 +305,6 @@ function copySidecar(sourceDbPath, target, suffix) {
     catch {
         // ignore
     }
-}
-function buildHostWhereClause(hosts) {
-    const clauses = [];
-    for (const host of hosts) {
-        for (const candidate of expandHostCandidates(host)) {
-            const escaped = sqlLiteral(candidate);
-            const escapedDot = sqlLiteral(`.${candidate}`);
-            const escapedLike = sqlLiteral(`%.${candidate}`);
-            clauses.push(`host = ${escaped}`);
-            clauses.push(`host = ${escapedDot}`);
-            clauses.push(`host LIKE ${escapedLike}`);
-        }
-    }
-    return clauses.length ? clauses.join(" OR ") : "1=0";
-}
-function expandHostCandidates(host) {
-    const parts = host.split(".").filter(Boolean);
-    if (parts.length <= 1) {
-        return [host];
-    }
-    const candidates = new Set([host]);
-    for (let index = 1; index <= parts.length - 2; index += 1) {
-        const candidate = parts.slice(index).join(".");
-        if (candidate) {
-            candidates.add(candidate);
-        }
-    }
-    return Array.from(candidates);
-}
-function sqlLiteral(value) {
-    const escaped = value.replaceAll("'", "''");
-    return `'${escaped}'`;
 }
 function normalizeFirefoxExpiry(expiry) {
     if (!expiry) {

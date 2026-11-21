@@ -7,6 +7,7 @@ import { normalizeExpiration } from "../../util/expire.js";
 import { hostMatchesCookieDomain } from "../../util/hostMatch.js";
 import { importNodeSqlite, supportsReadBigInts } from "../../util/nodeSqlite.js";
 import { isBunRuntime } from "../../util/runtime.js";
+import { buildHostWhereClause } from "../../util/sqliteHosts.js";
 import { getChromiumEncryptedValuePrefix } from "./crypto.js";
 
 type ChromeRow = {
@@ -414,45 +415,6 @@ function copySidecar(sourceDbPath: string, target: string, suffix: "-wal" | "-sh
 	} catch {
 		// ignore
 	}
-}
-
-function buildHostWhereClause(hosts: string[], column: "host_key"): string {
-	const clauses: string[] = [];
-	for (const host of hosts) {
-		// Chrome cookies often live on parent domains (e.g. .google.com for gemini.google.com).
-		// Include parent domains so the SQL filter doesn't drop valid session cookies.
-		for (const candidate of expandHostCandidates(host)) {
-			const escaped = sqlLiteral(candidate);
-			const escapedDot = sqlLiteral(`.${candidate}`);
-			const escapedLike = sqlLiteral(`%.${candidate}`);
-			clauses.push(`${column} = ${escaped}`);
-			clauses.push(`${column} = ${escapedDot}`);
-			clauses.push(`${column} LIKE ${escapedLike}`);
-		}
-	}
-	return clauses.length ? clauses.join(" OR ") : "1=0";
-}
-
-function sqlLiteral(value: string): string {
-	const escaped = value.replaceAll("'", "''");
-	return `'${escaped}'`;
-}
-
-function expandHostCandidates(host: string): string[] {
-	const parts = host.split(".").filter(Boolean);
-	if (parts.length <= 1) {
-		return [host];
-	}
-	const candidates = new Set<string>();
-	candidates.add(host);
-	// Include parent domains down to two labels (avoid TLD-only fragments).
-	for (let i = 1; i <= parts.length - 2; i += 1) {
-		const candidate = parts.slice(i).join(".");
-		if (candidate) {
-			candidates.add(candidate);
-		}
-	}
-	return Array.from(candidates);
 }
 
 function hostMatchesAny(hosts: string[], cookieHost: string): boolean {
